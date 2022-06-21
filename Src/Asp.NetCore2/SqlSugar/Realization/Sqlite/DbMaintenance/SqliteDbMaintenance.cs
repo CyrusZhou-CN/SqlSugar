@@ -62,7 +62,7 @@ namespace SqlSugar
         {
             get
             {
-                return "ALTER TABLE {0} ADD COLUMN {1} {2}{3}";
+                return "ALTER TABLE {0} ADD COLUMN {1} {2}{3} {4} {5} {6} {7}";
             }
         }
         protected override string AlterColumnToTableSql
@@ -453,7 +453,26 @@ namespace SqlSugar
             // 重命名临时表
             RenameTable($"{tableName}_temp", tableName);
             return true;
-        }        
+        }
+        protected override string GetAddColumnSql(string tableName, DbColumnInfo columnInfo)
+        {
+            string columnName = this.SqlBuilder.GetTranslationColumnName(columnInfo.DbColumnName);
+            tableName = this.SqlBuilder.GetTranslationTableName(tableName);
+            string dataType = columnInfo.DataType;
+            string dataSize = GetSize(columnInfo);
+            string nullType = columnInfo.IsNullable ? this.CreateTableNull : CreateTableNotNull;
+            string primaryKey = null;
+            string identity = null;
+            string defaultValue = string.IsNullOrWhiteSpace(columnInfo.DefaultValue)? $"DEFAULT ({columnInfo.DefaultValue})" : null;
+            string result = string.Format(this.AddColumnToTableSql, tableName, columnName, dataType, dataSize, nullType, primaryKey, identity, defaultValue);
+            return result;
+        }
+        public override bool AddPrimaryKey(string tableName, string columnName)
+        {
+            string sql = string.Format(this.AddPrimaryKeySql, tableName, string.Format("PK_{0}_{1}", this.SqlBuilder.GetNoTranslationColumnName(tableName), this.SqlBuilder.GetNoTranslationColumnName(columnName)), columnName);
+            this.Context.Ado.ExecuteCommand(sql);
+            return true;
+        }
         public override bool BackupTable(string oldTableName, string newTableName, int maxBackupDataRows = int.MaxValue)
         {
             oldTableName = this.SqlBuilder.GetTranslationTableName(oldTableName);
