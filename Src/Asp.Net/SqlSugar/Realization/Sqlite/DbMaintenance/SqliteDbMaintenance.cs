@@ -266,7 +266,7 @@ namespace SqlSugar
                 //clear sqlite  identity
                 return this.Context.Ado.ExecuteCommand($"UPDATE sqlite_sequence SET seq = 0 WHERE name = '{tableName}'") > 0;
             }
-            catch 
+            catch
             {
                 //if no identity sqlite_sequence
                 return true;
@@ -279,7 +279,7 @@ namespace SqlSugar
         /// <returns></returns>
         public override bool CreateDatabase(string databaseName, string databaseDirectory = null)
         {
-            var connString=this.Context.CurrentConnectionConfig.ConnectionString;
+            var connString = this.Context.CurrentConnectionConfig.ConnectionString;
             var linuxPath = connString.Split('=')?[1]?.TrimStart();
             var path = Regex.Match(connString, @"[a-z,A-Z]\:\\.+\\").Value;
             if (linuxPath.StartsWith("."))
@@ -376,7 +376,7 @@ namespace SqlSugar
                 {
                     DbColumnInfo column = new DbColumnInfo()
                     {
-                        TableName =this.SqlBuilder.GetNoTranslationColumnName(tableName+""),
+                        TableName = this.SqlBuilder.GetNoTranslationColumnName(tableName + ""),
                         DataType = row["DataTypeName"].ToString().Trim(),
                         IsNullable = (bool)row["AllowDBNull"],
                         IsIdentity = (bool)row["IsAutoIncrement"],
@@ -412,12 +412,12 @@ namespace SqlSugar
             RenameTable($"{tableName}_temp", tableName);
             return true;
         }
-        public override bool AddPrimaryKey(string tableName, string columnName)
+        public override bool AddPrimaryKey(string tableName, string columnName, bool IsIdentity)
         {
             // 目前Sqlite 没有添加主键功能,使用复制功能实现
             var columns = GetColumnInfosByTableName(tableName, false);
             // 创建临时表
-            string sql = $"create table [{tableName}_temp]({string.Join(",", columns.Select(m => $"[{m.DbColumnName}] {m.DataType} {GetSize(m)} {(m.IsNullable ? this.CreateTableNull : CreateTableNotNull)}"))}, CONSTRAINT [sqlite_autoindex_{tableName}_1] PRIMARY KEY ([{columnName}]));";
+            string sql = $"create table [{tableName}_temp]({string.Join(",", columns.Select(m => $"[{m.DbColumnName}] {(IsIdentity && m.DbColumnName == columnName ? "integer" : m.DataType)} {GetSize(m)} {(m.IsNullable ? m.DbColumnName == columnName ? CreateTableNotNull : this.CreateTableNull : CreateTableNotNull)}{(IsIdentity && m.DbColumnName == columnName ? " PRIMARY KEY AUTOINCREMENT" : "")}{(!string.IsNullOrWhiteSpace(m.DefaultValue) ? $" DEFAULT ({m.DefaultValue})" : null)}"))}{(!IsIdentity ? $", CONSTRAINT [sqlite_autoindex_{tableName}_1] PRIMARY KEY ([{columnName}])" : null)});";
             this.Context.Ado.ExecuteCommand(sql);
             sql = $"insert into [{tableName}_temp] select * from [{tableName}];";
             this.Context.Ado.ExecuteCommand(sql);
@@ -448,7 +448,13 @@ namespace SqlSugar
                     if (item.IsIdentity && !item.IsPrimarykey)
                     {
                         item.IsPrimarykey = true;
+                        item.DataType = "integer";
                         Check.Exception(item.DataType == "integer", "Identity only integer type");
+                    }
+                    if (item.IsIdentity)
+                    {
+                        // sqlite 只支持 integer 自增长
+                        item.DataType = "integer";
                     }
                 }
             }
@@ -483,7 +489,7 @@ namespace SqlSugar
                 {
                     item.Length = 1;
                 }
-                string dataSize = item.Length > 0 ? string.Format("({0})", item.Length) : null;
+                string dataSize = GetSize(item);
                 string nullType = item.IsNullable ? this.CreateTableNull : CreateTableNotNull;
                 string primaryKey = item.IsPrimarykey ? this.CreateTablePirmaryKey : null;
                 string identity = item.IsIdentity ? this.CreateTableIdentity : null;
