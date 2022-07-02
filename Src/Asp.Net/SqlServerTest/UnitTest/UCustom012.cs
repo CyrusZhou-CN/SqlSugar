@@ -105,7 +105,6 @@ namespace OrmTest
            .ToList();
 
 
-
             var list3_1 = db.Queryable<StudentA>()
            .Includes(x => x.Books.MappingField(z=>z.Names,()=>x.Name).ToList())
            .ToList();
@@ -191,10 +190,28 @@ namespace OrmTest
                     x = SqlFunc.Subqueryable<Order>().Where(z => z.Id == it.Id).Any()
                 }).ToList();
 
+            var list6 = db.Queryable<StudentA>()
+         .Includes(x => x.SchoolA, x => x.RoomList)
+         .Includes(x => x.Books).ToList();
+
             db.Deleteable<StudentA>().Where(x => x.SchoolA.TeacherList.Any()).ExecuteCommand();
             db.Deleteable<StudentA>().Where(x => x.SchoolA.School_Name=="a").ExecuteCommand();
             db.Updateable<StudentA>()
                 .SetColumns(it=>it.Name=="a").Where(x => x.SchoolA.School_Name == "a").ExecuteCommand();
+
+
+     
+
+            db.DbMaintenance.TruncateTable<StudentA, RoomA, BookA>();
+
+            //开发中
+            db.InsertNav(list6)
+            .ThenInclude(z1 => z1.SchoolA)
+            .ThenInclude(z1 => z1.RoomList)
+            .AsNav()
+            .ThenInclude(z1 => z1.Books);
+
+
         }
 
         public class UnitA001

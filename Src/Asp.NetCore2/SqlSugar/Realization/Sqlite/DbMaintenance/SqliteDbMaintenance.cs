@@ -55,7 +55,7 @@ namespace SqlSugar
         {
             get
             {
-                throw new NotSupportedException();
+                return "";
             }
         }
         protected override string AddColumnToTableSql
@@ -469,8 +469,6 @@ namespace SqlSugar
         }
         public override bool AddPrimaryKey(string tableName, string columnName)
         {
-            string sql = string.Format(this.AddPrimaryKeySql, tableName, string.Format("PK_{0}_{1}", this.SqlBuilder.GetNoTranslationColumnName(tableName), this.SqlBuilder.GetNoTranslationColumnName(columnName)), columnName);
-            this.Context.Ado.ExecuteCommand(sql);
             return true;
         }
         public override bool BackupTable(string oldTableName, string newTableName, int maxBackupDataRows = int.MaxValue)

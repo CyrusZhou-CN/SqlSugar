@@ -28,7 +28,7 @@ namespace SqlSugar
         public EntityInfo GetEntityInfoNoCache(Type type)
         {
             EntityInfo result = new EntityInfo();
-            var sugarAttributeInfo = type.GetTypeInfo().GetCustomAttributes(typeof(SugarTable), true).Where(it => it is SugarTable).SingleOrDefault();
+            var sugarAttributeInfo = type.GetTypeInfo().GetCustomAttributes(typeof(SugarTable), false).Where(it => it is SugarTable).SingleOrDefault();
             if (sugarAttributeInfo.HasValue())
             {
                 var sugarTable = (SugarTable)sugarAttributeInfo;
@@ -258,6 +258,7 @@ namespace SqlSugar
                 }
                 else
                 {
+
                     if (sugarColumn.IsJson && String.IsNullOrEmpty(sugarColumn.ColumnDataType))
                     {
                         if (this.Context.CurrentConnectionConfig.DbType == DbType.PostgreSQL)
@@ -298,6 +299,21 @@ namespace SqlSugar
                         column.IsArray = sugarColumn.IsArray;
                         column.IsTreeKey = sugarColumn.IsTreeKey;
                         column.SqlParameterDbType = sugarColumn.SqlParameterDbType;
+
+                        if (sugarColumn.IsJson && String.IsNullOrEmpty(sugarColumn.ColumnDataType))
+                        {
+                            if (this.Context.CurrentConnectionConfig.DbType == DbType.PostgreSQL)
+                            {
+                                column.DataType = "json";
+                            } else if (this.Context.CurrentConnectionConfig.DbType == DbType.OpenGauss)
+                        {
+                            column.DataType = "json";
+                        }
+                            else
+                            {
+                                column.DataType = "varchar(4000)";
+                            }
+                        }
                     }
                     else
                     {
@@ -322,6 +338,12 @@ namespace SqlSugar
                 if (this.Context.CurrentConnectionConfig.ConfigureExternalServices != null && this.Context.CurrentConnectionConfig.ConfigureExternalServices.EntityService != null)
                 {
                     this.Context.CurrentConnectionConfig.ConfigureExternalServices.EntityService(property, column);
+                }
+                if (column.PropertyInfo.DeclaringType != null
+                    && column.PropertyInfo.DeclaringType != result.Type
+                    &&result.Columns.Any(x=>x.PropertyName==column.PropertyName)) 
+                {
+                    continue;
                 }
                 result.Columns.Add(column);
             }

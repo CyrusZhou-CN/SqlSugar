@@ -28,7 +28,7 @@ namespace SqlSugar
         public EntityInfo GetEntityInfoNoCache(Type type)
         {
             EntityInfo result = new EntityInfo();
-            var sugarAttributeInfo = type.GetTypeInfo().GetCustomAttributes(typeof(SugarTable), true).Where(it => it is SugarTable).SingleOrDefault();
+            var sugarAttributeInfo = type.GetTypeInfo().GetCustomAttributes(typeof(SugarTable), false).Where(it => it is SugarTable).SingleOrDefault();
             if (sugarAttributeInfo.HasValue())
             {
                 var sugarTable = (SugarTable)sugarAttributeInfo;
@@ -161,7 +161,7 @@ namespace SqlSugar
             {
                 return string.Empty;
             }
-            XElement xe =new ReflectionInoCacheService().GetOrCreate("EntityXml_"+xmlPath,()=> XElement.Load(xmlPath));
+            XElement xe = new ReflectionInoCacheService().GetOrCreate("EntityXml_" + xmlPath, () => XElement.Load(xmlPath));
             if (xe == null)
             {
                 return string.Empty;
@@ -176,13 +176,13 @@ namespace SqlSugar
             {
                 return summary.Value.ToSqlFilter().Trim();
             }
-            else 
+            else
             {
                 var summaryValue = xeNode.Elements().Where(x => x.Name.ToString().EqualCase("summary")).Select(it => it.Value).FirstOrDefault();
-                if(summaryValue==null)
-                    return string.Empty;  
+                if (summaryValue == null)
+                    return string.Empty;
                 else
-                    return summaryValue.ToSqlFilter().Trim()??"";
+                    return summaryValue.ToSqlFilter().Trim() ?? "";
             }
         }
         /// <summary>
@@ -192,11 +192,11 @@ namespace SqlSugar
         /// <returns>the code annotation for the database table</returns>
         public string GetTableAnnotation(Type entityType)
         {
-            if (entityType.IsClass() == false) 
+            if (entityType.IsClass() == false)
             {
                 return null;
             }
-            var result= GetXElementNodeValue(entityType, $"T:{entityType.FullName}");
+            var result = GetXElementNodeValue(entityType, $"T:{entityType.FullName}");
             if (string.IsNullOrEmpty(result))
             {
                 return null;
@@ -218,7 +218,7 @@ namespace SqlSugar
             {
                 return null;
             }
-            var result= GetXElementNodeValue(entityType, $"P:{entityType.FullName}.{dbColumnName}");
+            var result = GetXElementNodeValue(entityType, $"P:{entityType.FullName}.{dbColumnName}");
             if (string.IsNullOrEmpty(result))
             {
                 return null;
@@ -237,8 +237,8 @@ namespace SqlSugar
                 EntityColumnInfo column = new EntityColumnInfo();
                 //var isVirtual = property.GetGetMethod().IsVirtual;
                 //if (isVirtual) continue;
-                var navigat=property.GetCustomAttribute(typeof(Navigate));
-                if (navigat != null) 
+                var navigat = property.GetCustomAttribute(typeof(Navigate));
+                if (navigat != null)
                 {
                     column.IsIgnore = true;
                     column.Navigat = navigat as Navigate;
@@ -258,6 +258,7 @@ namespace SqlSugar
                 }
                 else
                 {
+
                     if (sugarColumn.IsJson && String.IsNullOrEmpty(sugarColumn.ColumnDataType))
                     {
                         if (this.Context.CurrentConnectionConfig.DbType == DbType.PostgreSQL)
@@ -298,6 +299,21 @@ namespace SqlSugar
                         column.IsArray = sugarColumn.IsArray;
                         column.IsTreeKey = sugarColumn.IsTreeKey;
                         column.SqlParameterDbType = sugarColumn.SqlParameterDbType;
+                        if (sugarColumn.IsJson && String.IsNullOrEmpty(sugarColumn.ColumnDataType))
+                        {
+                            if (this.Context.CurrentConnectionConfig.DbType == DbType.PostgreSQL)
+                            {
+                                column.DataType = "json";
+                            }
+                            else if (this.Context.CurrentConnectionConfig.DbType == DbType.OpenGauss)
+                            {
+                                column.DataType = "json";
+                            }
+                            else
+                            {
+                                column.DataType = "varchar(4000)";
+                            }
+                        }
                     }
                     else
                     {
@@ -322,6 +338,12 @@ namespace SqlSugar
                 if (this.Context.CurrentConnectionConfig.ConfigureExternalServices != null && this.Context.CurrentConnectionConfig.ConfigureExternalServices.EntityService != null)
                 {
                     this.Context.CurrentConnectionConfig.ConfigureExternalServices.EntityService(property, column);
+                }
+                if (column.PropertyInfo.DeclaringType != null
+                    && column.PropertyInfo.DeclaringType != result.Type
+                    && result.Columns.Any(x => x.PropertyName == column.PropertyName))
+                {
+                    continue;
                 }
                 result.Columns.Add(column);
             }

@@ -89,6 +89,13 @@
     <Compile Include="Abstract\DeleteProvider\SplitTableDeleteByObjectProvider.cs" />
     <Compile Include="Abstract\DeleteProvider\SplitTableDeleteProvider.cs" />
     <Compile Include="Abstract\EntityMaintenance\EntityMaintenance.cs" />
+    <Compile Include="Abstract\ExecuteNavProvider\InsertNavProviderHelper.cs" />
+    <Compile Include="Abstract\ExecuteNavProvider\InsertNavProviderOneToMany.cs" />
+    <Compile Include="Abstract\ExecuteNavProvider\InsertNavProviderManyToMany.cs" />
+    <Compile Include="Abstract\ExecuteNavProvider\InsertNavProviderOneToOne.cs" />
+    <Compile Include="Abstract\ExecuteNavProvider\DeleteNavProvider.cs" />
+    <Compile Include="Abstract\ExecuteNavProvider\UpdateInsert.cs" />
+    <Compile Include="Abstract\ExecuteNavProvider\InsertNavProvider.cs" />
     <Compile Include="Abstract\ExpressionableProvider\Expressionable.cs" />
     <Compile Include="Abstract\FastestProvider\FastBuilder.cs" />
     <Compile Include="Abstract\FastestProvider\FastestProvider.cs" />
@@ -103,6 +110,9 @@
     <Compile Include="Abstract\SaveableProvider\StorageableDataTable.cs" />
     <Compile Include="Abstract\SugarProvider\SqlSugarCoreProvider.cs" />
     <Compile Include="Abstract\UpdateProvider\SplitTableUpdateByObjectProvider.cs" />
+    <Compile Include="Entities\DbFastestProperties.cs" />
+    <Compile Include="ExpressionsToSql\Subquery\Items\SubWithNoLock.cs" />
+    <Compile Include="ExpressionsToSql\Subquery\Items\SubEnableTableFilter.cs" />
     <Compile Include="Json2Sql\Entities\JsonDeleteResult.cs" />
     <Compile Include="Json2Sql\Entities\JsonInsertResult.cs" />
     <Compile Include="Json2Sql\Entities\JsonQueryResult.cs" />

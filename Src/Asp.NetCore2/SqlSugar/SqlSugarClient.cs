@@ -153,6 +153,33 @@ namespace SqlSugar
 
         #region Queryable
 
+        #region  Nav CUD
+        public InsertNavProvider<T, T> InsertNav<T>(T data) where T : class, new()
+        {
+            return  this.Context.InsertNav(data);
+        }
+        public InsertNavProvider<T, T> InsertNav<T>(List<T> datas) where T : class, new()
+        {
+            return this.Context.InsertNav(datas);
+        }
+        public DeleteNavProvider<T, T> DeleteNav<T>(T data)
+        {
+            return this.Context.DeleteNav(data);
+        }
+        public DeleteNavProvider<T, T> DeleteNav<T>(List<T> datas)
+        {
+            return this.Context.DeleteNav(datas);
+        }
+        public UpdateNavProvider<T, T> UpdateNav<T>(T data)
+        {
+            return this.Context.UpdateNav(data);
+        }
+        public UpdateNavProvider<T, T> UpdateNav<T>(List<T> datas)
+        {
+            return this.Context.UpdateNav(datas);  
+        }
+        #endregion
+
         #region Union
         public ISugarQueryable<T> Union<T>(List<ISugarQueryable<T>> queryables) where T : class, new()
         {
@@ -1261,6 +1288,10 @@ namespace SqlSugar
         {
             return this.GetConnectionWithAttr<T>().Updateable(updateObj);
         }
+        public IUpdateable<T> UpdateableWithAttr<T>() where T : class, new()
+        {
+            return this.GetConnectionWithAttr<T>().Updateable<T>();
+        }
         public IUpdateable<T> UpdateableWithAttr<T>(List<T> updateObjs) where T : class, new()
         {
             return this.GetConnectionWithAttr<T>().Updateable(updateObjs);
@@ -1268,6 +1299,10 @@ namespace SqlSugar
         public IDeleteable<T> DeleteableWithAttr<T>(T deleteObject) where T : class, new()
         {
             return this.GetConnectionWithAttr<T>().Deleteable(deleteObject);
+        }
+        public IDeleteable<T> DeleteableWithAttr<T>() where T : class, new()
+        {
+            return this.GetConnectionWithAttr<T>().Deleteable<T>();
         }
         public IDeleteable<T> DeleteableWithAttr<T>(List<T> deleteObjects) where T : class, new()
         {

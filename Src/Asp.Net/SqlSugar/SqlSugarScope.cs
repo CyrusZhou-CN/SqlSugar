@@ -711,6 +711,12 @@ namespace SqlSugar
         {
             return ScopedContext.UpdateableWithAttr<T>(updateObj);
         }
+
+        public IUpdateable<T> UpdateableWithAttr<T>() where T : class, new()
+        {
+            return ScopedContext.UpdateableWithAttr<T>();
+        }
+
         public IUpdateable<T> UpdateableWithAttr<T>(List<T> updateObjs) where T : class, new()
         {
             return ScopedContext.UpdateableWithAttr<T>(updateObjs);
@@ -719,9 +725,39 @@ namespace SqlSugar
         {
             return ScopedContext.DeleteableWithAttr<T>(deleteObj);
         }
+        public IDeleteable<T> DeleteableWithAttr<T>() where T : class, new()
+        {
+            return ScopedContext.DeleteableWithAttr<T>();
+        }
         public IDeleteable<T> DeleteableWithAttr<T>(List<T> deleteObjs) where T : class, new()
         {
             return ScopedContext.DeleteableWithAttr<T>(deleteObjs);
         }
+ 
+        public InsertNavProvider<T, T> InsertNav<T>(T data) where T : class, new()
+        {
+            return ScopedContext.InsertNav(data);
+        }
+        public InsertNavProvider<T, T> InsertNav<T>(List<T> datas) where T : class, new()
+        {
+            return ScopedContext.InsertNav(datas);
+        }
+        public DeleteNavProvider<T, T> DeleteNav<T>(T data)
+        {
+            return ScopedContext.DeleteNav(data);
+        }
+        public DeleteNavProvider<T, T> DeleteNav<T>(List<T> datas)
+        {
+            return ScopedContext.DeleteNav(datas);
+        }
+        public UpdateNavProvider<T, T> UpdateNav<T>(T data)
+        {
+            return ScopedContext.UpdateNav(data);
+        }
+        public UpdateNavProvider<T, T> UpdateNav<T>(List<T> datas)
+        {
+            return ScopedContext.UpdateNav(datas);
+        }
+ 
     }
 }

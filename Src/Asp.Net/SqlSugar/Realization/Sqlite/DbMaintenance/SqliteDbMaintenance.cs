@@ -55,7 +55,7 @@ namespace SqlSugar
         {
             get
             {
-                throw new NotSupportedException();
+                return "";
             }
         }
         protected override string AddColumnToTableSql

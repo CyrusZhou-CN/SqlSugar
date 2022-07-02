@@ -168,6 +168,10 @@ namespace SqlSugar
         private MapperSql GetOneToManySql()
         {
             var pkColumn = this.EntityInfo.Columns.FirstOrDefault(it => it.IsPrimarykey == true);
+            if (Navigat.Name2.HasValue()) 
+            {
+                pkColumn = this.EntityInfo.Columns.FirstOrDefault(it => it.PropertyName== Navigat.Name2);
+            }
             Check.ExceptionEasy(pkColumn == null, $"{this.EntityInfo.EntityName} need primary key ",
                 $"导航属性 {this.EntityInfo.EntityName}需要主键");
             var pk = pkColumn.DbColumnName;
