@@ -320,7 +320,7 @@ namespace SqlSugar
         private List<DbColumnInfo> GetColumnInfosByTableName(string tableName)
         {
             var columns = GetColumnsByTableName2(tableName);
-            string sql = "PRAGMA table_info(" +SqlBuilder.GetTranslationTableName(tableName) + ")";
+            string sql = "PRAGMA table_info(" + SqlBuilder.GetTranslationTableName(tableName) + ")";
             var oldIsEnableLog = this.Context.Ado.IsEnableLogEvent;
             this.Context.Ado.IsEnableLogEvent = false;
             using (DbDataReader dataReader = (SqliteDataReader)this.Context.Ado.GetDataReader(sql))
@@ -342,11 +342,11 @@ namespace SqlSugar
                         }
                         else
                         {
-                        length = type.Split('(').Last().TrimEnd(')').ObjToInt();
+                            length = type.Split('(').Last().TrimEnd(')').ObjToInt();
                         }
                         type = type.Split('(').First();
                     }
-                    bool isIdentity = columns.FirstOrDefault(it => it.DbColumnName.Equals(dataReader.GetString(1),StringComparison.CurrentCultureIgnoreCase)).IsIdentity;
+                    bool isIdentity = columns.FirstOrDefault(it => it.DbColumnName.Equals(dataReader.GetString(1), StringComparison.CurrentCultureIgnoreCase)).IsIdentity;
                     DbColumnInfo column = new DbColumnInfo()
                     {
                         TableName = this.SqlBuilder.GetNoTranslationColumnName(tableName + ""),
@@ -358,8 +358,8 @@ namespace SqlSugar
                         DefaultValue = dataReader.GetValue(4).ObjToString(),
                         IsPrimarykey = dataReader.GetBoolean(5).ObjToBool(),
                         Length = length,
-                        DecimalDigits=decimalDigits,
-                        Scale= decimalDigits
+                        DecimalDigits = decimalDigits,
+                        Scale = decimalDigits
                     };
                     result.Add(column);
                 }
@@ -443,7 +443,7 @@ namespace SqlSugar
         {
             // 目前Sqlite 没有修改列功能,使用复制功能实现
             var columns = GetColumnInfosByTableName(tableName, false);
-            var column=columns.FirstOrDefault(m => m.DbColumnName == oldColumnName);
+            var column = columns.FirstOrDefault(m => m.DbColumnName == oldColumnName);
             column.DbColumnName = $"{column.DbColumnName} as {newColumnName}";
             // 复制临时表
             string sql = $"create table {tableName}_temp as select {string.Join(",", columns.Select(m => m.DbColumnName))} from {tableName};";
@@ -463,16 +463,16 @@ namespace SqlSugar
             string nullType = columnInfo.IsNullable ? this.CreateTableNull : CreateTableNotNull;
             string primaryKey = null;
             string identity = null;
-            string defaultValue = string.IsNullOrWhiteSpace(columnInfo.DefaultValue)? $"DEFAULT ({columnInfo.DefaultValue})" : null;
+            string defaultValue = !string.IsNullOrWhiteSpace(columnInfo.DefaultValue) ? $"DEFAULT ({columnInfo.DefaultValue})" : null;
             string result = string.Format(this.AddColumnToTableSql, tableName, columnName, dataType, dataSize, nullType, primaryKey, identity, defaultValue);
             return result;
         }
-        public override bool AddPrimaryKey(string tableName, string columnName)
+        public override bool AddPrimaryKey(string tableName, string columnName, bool IsIdentity)
         {
             // 目前Sqlite 没有添加主键功能,使用复制功能实现
             var columns = GetColumnInfosByTableName(tableName, false);
             // 创建临时表
-            string sql = $"create table [{tableName}_temp]({string.Join(",", columns.Select(m => $"[{m.DbColumnName}] {m.DataType} {GetSize(m)} {(m.IsNullable ? this.CreateTableNull : CreateTableNotNull)}"))}, CONSTRAINT [sqlite_autoindex_{tableName}_1] PRIMARY KEY ([{columnName}]));";
+            string sql = $"create table [{tableName}_temp]({string.Join(",", columns.Select(m => $"[{m.DbColumnName}] {(IsIdentity && m.DbColumnName == columnName ? "integer" : m.DataType)} {GetSize(m)} {(m.IsNullable ? m.DbColumnName == columnName? CreateTableNotNull: this.CreateTableNull : CreateTableNotNull)}{(IsIdentity && m.DbColumnName == columnName ? " PRIMARY KEY AUTOINCREMENT" : "")}{(!string.IsNullOrWhiteSpace(m.DefaultValue) ? $" DEFAULT ({m.DefaultValue})" : null)}"))}{(!IsIdentity?$", CONSTRAINT [sqlite_autoindex_{tableName}_1] PRIMARY KEY ([{columnName}])":null)});";
             this.Context.Ado.ExecuteCommand(sql);
             sql = $"insert into [{tableName}_temp] select * from [{tableName}];";
             this.Context.Ado.ExecuteCommand(sql);
@@ -496,14 +496,16 @@ namespace SqlSugar
             {
                 foreach (var item in columns)
                 {
-                    //if (item.DbColumnName.Equals("GUID", StringComparison.CurrentCultureIgnoreCase))
-                    //{
-                    //    item.Length = 20;
-                    //}
                     if (item.IsIdentity && !item.IsPrimarykey)
                     {
                         item.IsPrimarykey = true;
+                        item.DataType = "integer";
                         Check.Exception(item.DataType == "integer", "Identity only integer type");
+                    }
+                    if (item.IsIdentity)
+                    {
+                        // sqlite 只支持 integer 自增长
+                        item.DataType = "integer";
                     }
                 }
             }
@@ -538,7 +540,7 @@ namespace SqlSugar
                 {
                     item.Length = 1;
                 }
-                string dataSize = item.Length > 0 ? string.Format("({0})", item.Length) : null;
+                string dataSize = GetSize(item);
                 string nullType = item.IsNullable ? this.CreateTableNull : CreateTableNotNull;
                 string primaryKey = item.IsPrimarykey ? this.CreateTablePirmaryKey : null;
                 string identity = item.IsIdentity ? this.CreateTableIdentity : null;

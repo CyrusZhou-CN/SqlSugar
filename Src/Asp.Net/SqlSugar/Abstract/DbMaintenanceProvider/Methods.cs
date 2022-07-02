@@ -166,7 +166,7 @@ namespace SqlSugar
             return true;
         }
 
-        public virtual bool AddPrimaryKey(string tableName, string columnName)
+        public virtual bool AddPrimaryKey(string tableName, string columnName, bool IsIdentity)
         {
             tableName = this.SqlBuilder.GetTranslationTableName(tableName);
             columnName = this.SqlBuilder.GetTranslationTableName(columnName);
