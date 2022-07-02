@@ -412,6 +412,21 @@ namespace SqlSugar
             RenameTable($"{tableName}_temp", tableName);
             return true;
         }
+        public override bool AddPrimaryKey(string tableName, string columnName)
+        {
+            // 目前Sqlite 没有添加主键功能,使用复制功能实现
+            var columns = GetColumnInfosByTableName(tableName, false);
+            // 创建临时表
+            string sql = $"create table [{tableName}_temp]({string.Join(",", columns.Select(m => $"[{m.DbColumnName}] {m.DataType} {GetSize(m)} {(m.IsNullable ? this.CreateTableNull : CreateTableNotNull)}"))}, CONSTRAINT [sqlite_autoindex_{tableName}_1] PRIMARY KEY ([{columnName}]));";
+            this.Context.Ado.ExecuteCommand(sql);
+            sql = $"insert into [{tableName}_temp] select * from [{tableName}];";
+            this.Context.Ado.ExecuteCommand(sql);
+            // 删除旧表
+            DropTable(tableName);
+            // 重命名临时表
+            RenameTable($"{tableName}_temp", tableName);
+            return true;
+        }
         public override bool BackupTable(string oldTableName, string newTableName, int maxBackupDataRows = int.MaxValue)
         {
             oldTableName = this.SqlBuilder.GetTranslationTableName(oldTableName);
