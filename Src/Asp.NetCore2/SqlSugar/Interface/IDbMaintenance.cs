@@ -40,7 +40,7 @@ namespace SqlSugar
         bool CreateTable(string tableName, List<DbColumnInfo> columns,bool isCreatePrimaryKey=true);
         bool AddColumn(string tableName, DbColumnInfo column);
         bool UpdateColumn(string tableName, DbColumnInfo column);
-        bool AddPrimaryKey(string tableName,string columnName,bool IsIdentity);
+        bool AddPrimaryKey(string tableName,string columnName,bool IsIdentity=false);
         bool AddPrimaryKeys(string tableName, string [] columnNames);
         bool AddPrimaryKeys(string tableName, string[] columnNames,string pkName);
         bool DropConstraint(string tableName, string constraintName);
