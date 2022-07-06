@@ -160,6 +160,19 @@ namespace OrmTest
             var test41 = db.Queryable<Order>().Take(2).OrderBy(it => it.Id).ToList();
             var test42 = db.Queryable<Order>().Take(2).OrderBy(it => it.Id).ToPageList(1,2);
             var test43 = db.Queryable<Order>().Take(2).ToPageList(1, 2);
+            Dictionary<string, object> whereDc = new Dictionary<string, object>();
+            whereDc.Add("id", 1);
+            whereDc.Add("name", null);
+            var test44=db.Queryable<Order>().WhereColumns(new List<Dictionary<string, object>>() {
+            whereDc
+            }).ToList();
+            var test45 = db.Queryable<Order>().
+              Where(it=>it.Price==0?true:it.Name==it.Name)
+              .ToList();
+            var dr3 = new Dictionary<string, object>();
+            dr3.Add("Id", 0);
+            dr3.Add("Name",null);
+            db.Queryable<Order>().WhereColumns(dr3,true).ToList();
             Console.WriteLine("#### Examples End ####");
         }
 

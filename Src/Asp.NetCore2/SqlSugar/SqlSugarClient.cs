@@ -154,11 +154,11 @@ namespace SqlSugar
         #region Queryable
 
         #region  Nav CUD
-        public InsertNavProvider<T, T> InsertNav<T>(T data) where T : class, new()
+        public InsertNavTaskInit<T,T> InsertNav<T>(T data) where T : class, new()
         {
             return  this.Context.InsertNav(data);
         }
-        public InsertNavProvider<T, T> InsertNav<T>(List<T> datas) where T : class, new()
+        public InsertNavTaskInit<T, T> InsertNav<T>(List<T> datas) where T : class, new()
         {
             return this.Context.InsertNav(datas);
         }
@@ -750,7 +750,7 @@ namespace SqlSugar
         {
             var attr = typeof(T).GetCustomAttribute<TenantAttribute>();
             if (attr == null)
-                return this.GetConnection(this.CurrentConnectionConfig.ConfigId);
+                return this.GetConnectionScope(this.CurrentConnectionConfig.ConfigId);
             var configId = attr.configId;
             return this.GetConnectionScope(configId);
         }

@@ -299,6 +299,7 @@ namespace SqlSugar
                         column.IsArray = sugarColumn.IsArray;
                         column.IsTreeKey = sugarColumn.IsTreeKey;
                         column.SqlParameterDbType = sugarColumn.SqlParameterDbType;
+
                         if (sugarColumn.IsJson && String.IsNullOrEmpty(sugarColumn.ColumnDataType))
                         {
                             if (this.Context.CurrentConnectionConfig.DbType == DbType.PostgreSQL)
@@ -341,7 +342,7 @@ namespace SqlSugar
                 }
                 if (column.PropertyInfo.DeclaringType != null
                     && column.PropertyInfo.DeclaringType != result.Type
-                    && result.Columns.Any(x => x.PropertyName == column.PropertyName))
+                    &&result.Columns.Any(x=>x.PropertyName==column.PropertyName)) 
                 {
                     continue;
                 }

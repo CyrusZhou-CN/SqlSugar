@@ -331,7 +331,7 @@ namespace SqlSugar
                         FieldName = item.DbColumnName,
                         ConditionalType = ConditionalType.Equal,
                         CSharpTypeName=UtilMethods.GetTypeName(value),
-                        FieldValue = value + "",
+                        FieldValue = value==null?"null":value.ObjToString(),
                         FieldValueConvertFunc=(this.Context.CurrentConnectionConfig.DbType==DbType.PostgreSQL ||
                                                this.Context.CurrentConnectionConfig.DbType == DbType.OpenGauss) ? 
                                                UtilMethods.GetTypeConvert(value):null

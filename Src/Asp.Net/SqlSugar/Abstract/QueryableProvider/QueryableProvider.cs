@@ -329,7 +329,15 @@ namespace SqlSugar
             CallContext.MapperExpression.Value.Add(new MapperExpression() { SqlBuilder = SqlBuilder, QueryBuilder = this.QueryBuilder, Type = MapperExpressionType.oneToOne, FillExpression = mapperObject, MappingField1Expression = mapperField, Context = this.Context });
             return _Mapper<TObject>(mapperObject, mapperField);
         }
-
+        public ISugarQueryable<T> Where(string fieldName, string conditionalType, object fieldValue)
+        {
+            string parameterName = fieldName+ this.QueryBuilder.WhereIndex;
+            var whereSql = this.SqlBuilder.GetWhere(fieldName, conditionalType, this.QueryBuilder.WhereIndex);
+            this.Where(whereSql);
+            this.QueryBuilder.WhereIndex++;
+            this.QueryBuilder.Parameters.Add(new SugarParameter(parameterName, fieldValue));
+            return this;
+        }
         public virtual ISugarQueryable<T> AddParameters(object parameters)
         {
             if (parameters != null)
@@ -411,6 +419,29 @@ namespace SqlSugar
             }
             return this;
         }
+        public ISugarQueryable<T> WhereColumns(Dictionary<string, object>  dictionary) 
+        {
+            return WhereColumns(new List<Dictionary<string, object>> { dictionary });
+        }
+        public ISugarQueryable<T> WhereColumns(Dictionary<string, object> columns, bool ignoreDefaultValue) 
+        {
+            if (ignoreDefaultValue == false || columns == null)
+            {
+                return WhereColumns(columns);
+            }
+            else 
+            {
+                var newColumns = new Dictionary<string, object>();
+                foreach (var item in columns)
+                {
+                    if (!UtilMethods.IsDefaultValue(item.Value)) 
+                    {
+                        newColumns.Add(item.Key, item.Value);
+                    }
+                }
+                return WhereColumns(newColumns);
+            }
+        }
         public ISugarQueryable<T> WhereColumns(List<Dictionary<string, object>> list)
         {
             List<IConditionalModel> conditionalModels = new List<IConditionalModel>();
@@ -424,7 +455,7 @@ namespace SqlSugar
                     {
                         FieldName = item,
                         ConditionalType = ConditionalType.Equal,
-                        FieldValue = model[item].ObjToString(),
+                        FieldValue = model[item]==null?"null" : model[item].ObjToString(),
                         CSharpTypeName = model[item] == null ? null : model[item].GetType().Name
                     }));
                     i++;

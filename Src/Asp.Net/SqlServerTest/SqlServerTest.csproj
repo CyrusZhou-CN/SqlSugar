@@ -112,6 +112,7 @@
     <Compile Include="UnitTest\UCustom019.cs" />
     <Compile Include="UnitTest\UintDynamic.cs" />
     <Compile Include="UnitTest\UNavDynamic111N.cs" />
+    <Compile Include="UnitTest\UnitManyToMany2.cs" />
     <Compile Include="UnitTest\UnitManyToMany.cs" />
     <Compile Include="UnitTest\UCustom018.cs" />
     <Compile Include="UnitTest\Models\Order.cs" />
@@ -139,6 +140,11 @@
     <Compile Include="UnitTest\UDelete.cs" />
     <Compile Include="UnitTest\UFastest.cs" />
     <Compile Include="UnitTest\UConfig.cs" />
+    <Compile Include="UnitTest\UOneManyMany5.cs" />
+    <Compile Include="UnitTest\UOneManyMany4.cs" />
+    <Compile Include="UnitTest\UOneManyMany3.cs" />
+    <Compile Include="UnitTest\UOneManyMany2.cs" />
+    <Compile Include="UnitTest\UOneManyMany.cs" />
     <Compile Include="UnitTest\USplit.cs" />
     <Compile Include="UnitTest\Models\TB_AdminUser.cs" />
     <Compile Include="UnitTest\Models\TB_ClientConfig.cs" />

@@ -306,9 +306,13 @@ namespace SqlSugar
                             {
                                 column.DataType = "json";
                             } else if (this.Context.CurrentConnectionConfig.DbType == DbType.OpenGauss)
-                        {
-                            column.DataType = "json";
-                        }
+	                        {
+	                            column.DataType = "json";
+	                        }
+                            else if (column.Length > 0) 
+                            {
+                                column.DataType = "varchar";
+                            }
                             else
                             {
                                 column.DataType = "varchar(4000)";

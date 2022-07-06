@@ -85,6 +85,10 @@ namespace SqlSugar
         {
             InitTables(typeof(T), typeof(T2), typeof(T3), typeof(T4));
         }
+        public void InitTables<T, T2, T3, T4,T5>()
+        {
+            InitTables(typeof(T), typeof(T2), typeof(T3), typeof(T4),typeof(T5));
+        }
         public virtual void InitTables(params Type[] entityTypes)
         {
             if (entityTypes.HasValue())
@@ -282,7 +286,7 @@ namespace SqlSugar
                 var alterColumns = entityColumns
                                            .Where(ec => !dbColumns.Any(dc => dc.DbColumnName.Equals(ec.OldDbColumnName, StringComparison.CurrentCultureIgnoreCase)))
                                            .Where(ec =>
-                                                          dbColumns.Any(dc => dc.DbColumnName.Equals(ec.DbColumnName)
+                                                          dbColumns.Any(dc => dc.DbColumnName.EqualCase(ec.DbColumnName)
                                                                && ((ec.Length != dc.Length && !UtilMethods.GetUnderType(ec.PropertyInfo).IsEnum() && UtilMethods.GetUnderType(ec.PropertyInfo).IsIn(UtilConstants.StringType)) ||
                                                                     ec.IsNullable != dc.IsNullable ||
                                                                     IsNoSamgeType(ec, dc)))).ToList();
@@ -367,6 +371,7 @@ namespace SqlSugar
                 {
                     this.Context.DbMaintenance.BackupTable(tableName, tableName + DateTime.Now.ToString("yyyyMMddHHmmss"), MaxBackupDataRows);
                 }
+                ExistLogicEnd(entityColumns);
             }
         }
 
@@ -387,6 +392,10 @@ namespace SqlSugar
                 this.Context.DbMaintenance.AddPrimaryKey(tableName, item.DbColumnName);
         }
 
+        protected virtual void ExistLogicEnd(List<EntityColumnInfo> dbColumns) 
+        {
+
+        }
         protected virtual void ConvertColumns(List<DbColumnInfo> dbColumns)
         {
 
