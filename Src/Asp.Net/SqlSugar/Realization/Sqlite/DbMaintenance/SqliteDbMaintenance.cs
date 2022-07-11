@@ -412,7 +412,7 @@ namespace SqlSugar
             RenameTable($"{tableName}_temp", tableName);
             return true;
         }
-        public override bool AddPrimaryKey(string tableName, string columnName, bool IsIdentity)
+        public override bool AddPrimaryKey(string tableName, string columnName, bool IsIdentity = false)
         {
             // 目前Sqlite 没有添加主键功能,使用复制功能实现
             var columns = GetColumnInfosByTableName(tableName, false);
