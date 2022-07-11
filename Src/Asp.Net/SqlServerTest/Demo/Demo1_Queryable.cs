@@ -169,6 +169,11 @@ namespace OrmTest
             var test45 = db.Queryable<Order>().
               Where(it=>it.Price==0?true:it.Name==it.Name)
               .ToList();
+            var num = 3;
+            var test46 = db.Queryable<Order>()
+              .Where(it=>-it.Id==1)
+              .Where(it => DateTime.Now.AddDays(-num) ==DateTime.Now.Date)
+              .ToList();
             var dr3 = new Dictionary<string, object>();
             dr3.Add("Id", 0);
             dr3.Add("Name",null);
@@ -473,7 +478,17 @@ namespace OrmTest
                 .LeftJoin(db.Queryable<OrderItem>().Where(it=>it.OrderId==2),(o,i,item)=>item.OrderId==o.Id)
                 .LeftJoin(db.Queryable<Order>().Where(it => it.Id >0), (o, i, item, od) => od.Id == o.Id)
                 .Select(o => o).ToList();
-    
+
+            var query9 = db.Queryable<Order>()
+                 .Where(m => m.Id == SqlFunc.Subqueryable<Order>()
+                 .Where(z => z.Id == m.Id).GroupBy(z => z.Id).Select(z => z.Id))
+                 .ToList();
+
+            var query10 = db.Queryable(db.Queryable<Order>())
+                .LeftJoin<OrderItem>((m, i) => m.Id == i.OrderId)
+                .Where(m => m.Id == SqlFunc.Subqueryable<Order>()
+                .Where(z => z.Id == m.Id).GroupBy(z => z.Id).Select(z => z.Id))
+                .ToList();
             Console.WriteLine("#### Join Table End ####");
         }
 
