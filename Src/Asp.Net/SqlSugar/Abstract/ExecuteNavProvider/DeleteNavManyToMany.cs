@@ -39,7 +39,11 @@ namespace SqlSugar
                 .Rows.Cast<System.Data.DataRow>().Select(it => it[0]).ToList();
 
 
-            var childList = this._Context.Queryable<TChild>().In(thisPkColumn.DbColumnName, bids).ToList();
+            var childList = GetChildList<TChild>().In(thisPkColumn.DbColumnName, bids).ToList();
+            if (_WhereList.HasValue()) 
+            {
+                bids = childList.Select(it => thisPkColumn.PropertyInfo.GetValue(it)).ToList();
+            }
 
 
             if (IsDeleteB())
@@ -51,19 +55,30 @@ namespace SqlSugar
             this._ParentPkColumn = thisPkColumn;
             this._IsDeletedParant = true;
 
-            SetContext(() => _Context.Deleteable<object>().AS(mappingEntity.DbTableName).In(
-                mappingA.DbColumnName, aids
-                ).ExecuteCommand());
+
+            if (_WhereList.HasValue())
+            {
+                SetContext(() => _Context.Deleteable<object>().AS(mappingEntity.DbTableName)
+                .In(mappingA.DbColumnName, aids)
+                .In(mappingB.DbColumnName, bids)
+                .ExecuteCommand());
+            }
+            else
+            {
+                SetContext(() => _Context.Deleteable<object>().AS(mappingEntity.DbTableName).In(
+                    mappingA.DbColumnName, aids
+                    ).ExecuteCommand());
+            }
 
         }
 
         private bool IsDeleteA()
         {
-            return deleteNavOptions != null && deleteNavOptions.ManyToMayIsDeleteA;
+            return deleteNavOptions != null && deleteNavOptions.ManyToManyIsDeleteA;
         }
         private bool IsDeleteB()
         {
-            return deleteNavOptions != null && deleteNavOptions.ManyToMayIsDeleteB;
+            return deleteNavOptions != null && deleteNavOptions.ManyToManyIsDeleteB;
         }
     }
 }

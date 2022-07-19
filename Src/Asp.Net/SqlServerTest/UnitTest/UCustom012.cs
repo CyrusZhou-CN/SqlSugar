@@ -58,8 +58,8 @@ namespace OrmTest
            .Includes(x => x.SchoolA, x => x.RoomList)//2个参数就是 then Include 
            .Includes(x => x.SchoolA, x => x.TeacherList)//2个参数就是 then Include 
            .Includes(x => x.Books)
-           .Where(x => x.Books.Any(z => z.BookId == 1))
-           .Where(x => x.SchoolA.School_Name.Contains("北大"))
+           .IncludeLeftJoin(x => x.SchoolA)
+           .Where(x =>x.SchoolA.SchoolId==1) 
            .ToList();
 
             var list21 = db.Queryable<StudentA>()
@@ -167,6 +167,32 @@ namespace OrmTest
                 //.Where(it=>it.Child.Any())
                 .ToList();
 
+
+            var xxx2 = db.Queryable<Tree1>()
+             .Includes(it => it.Child)
+              .GroupBy(x=>x.Id)
+              .OrderByDescending(x=>x.Id)
+             .ToList(it => new  ViewTree1{ 
+                  Count=SqlFunc.AggregateMin(it.Id)
+             });
+            if (xxx2.Last().Child == null) 
+            {
+                throw new Exception("unit error");
+            }
+
+            var xxx23 = db.Queryable<Tree1>()
+             .Includes(it => it.Child)
+              .GroupBy(x => x.Id)
+              .OrderByDescending(x => x.Id)
+             .ToListAsync(it => new ViewTree1
+             {
+                 Count = SqlFunc.AggregateMin(it.Id)
+             }).GetAwaiter().GetResult();
+            if (xxx23.Last().Child == null)
+            {
+                throw new Exception("unit error");
+            }
+
             db.ThenMapper(xxx, it =>
             {
                 it.Child = it.Child.OrderBy(x => x.Id).ToList();
@@ -189,7 +215,11 @@ namespace OrmTest
                 {
                     x = SqlFunc.Subqueryable<Order>().Where(z => z.Id == it.Id).Any()
                 }).ToList();
-
+            db.Queryable<StudentA>()
+               .Select(x => new {
+                   count = x.Books.Count(),
+                   count2 = x.Books.Count()
+               }).ToList();
             var list6 = db.Queryable<StudentA>()
          .Includes(x => x.SchoolA, x => x.RoomList)
          .Includes(x => x.Books).ToList();
@@ -200,8 +230,13 @@ namespace OrmTest
                 .SetColumns(it=>it.Name=="a").Where(x => x.SchoolA.School_Name == "a").ExecuteCommand();
 
 
-     
-
+            db.QueryFilter.Add(new TableFilterItem<City>(z=>z.ProvinceId==1,true));
+            db.QueryFilter.Add(new TableFilterItem<SchoolA>(z => z.School_Name == "z",true));
+            db.Queryable<StudentA>()
+                .Where(x=>x.SchoolA.SchoolId==1)
+                .Where(x => x.SchoolA.City.Id == 1)
+                .ToList();
+            db.QueryFilter.Clear();
             db.DbMaintenance.TruncateTable<StudentA, RoomA, BookA>();
 
             //开发中
@@ -226,6 +261,11 @@ namespace OrmTest
             public int id { get; set; }
             public string name2{ get; set; }
             public string orgid { get; set; }
+        }
+        public class ViewTree1
+        {
+            public int Count { get; set; }
+            public List<Tree1> Child { get; set; }
         }
         public class Tree1
         {

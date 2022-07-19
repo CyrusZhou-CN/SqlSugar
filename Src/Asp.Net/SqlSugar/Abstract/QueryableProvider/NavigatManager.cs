@@ -138,11 +138,15 @@ namespace SqlSugar
             var memberExpression = ((expression as LambdaExpression).Body as MemberExpression);
 
             var listItemType = list.Where(it=>it!=null).FirstOrDefault()?.GetType();
+            if (listItemType == null) 
+            {
+                return;
+            }
             if (listItemType.Name.StartsWith("List`")) 
             {
                 listItemType = listItemType.GetGenericArguments()[0];
             }
-            if (listItemType == null) return;
+            //if (listItemType == null) return;
 
             var listItemEntity = this.Context.EntityMaintenance.GetEntityInfo(listItemType);
             var listPkColumn = listItemEntity.Columns.Where(it => it.IsPrimarykey).FirstOrDefault();
@@ -222,7 +226,7 @@ namespace SqlSugar
                 CSharpTypeName = bColumn.PropertyInfo.PropertyType.Name
             }));
             var sql = GetWhereSql();
-            var bList = selector(this.Context.Queryable<object>().AS(bEntityInfo.DbTableName).AddParameters(sql.Parameters).Where(conditionalModels2).WhereIF(sql.WhereString.HasValue(),sql.WhereString).Select(sql.SelectString).OrderByIF(sql.OrderByString.HasValue(),sql.OrderByString));  
+            var bList = selector(this.Context.Queryable<object>().AS(bEntityInfo.DbTableName).Filter(bEntityInfo.Type).AddParameters(sql.Parameters).Where(conditionalModels2).WhereIF(sql.WhereString.HasValue(),sql.WhereString).Select(sql.SelectString).OrderByIF(sql.OrderByString.HasValue(),sql.OrderByString));  
             if (bList.HasValue())
             {
                 foreach (var listItem in list)
@@ -371,7 +375,7 @@ namespace SqlSugar
       
             if (list.Any() && navObjectNamePropety.GetValue(list.First()) == null)
             {
-                var navList = selector(this.Context.Queryable<object>().AS(navEntityInfo.DbTableName).AddParameters(sqlObj.Parameters).Where(conditionalModels).WhereIF(sqlObj.WhereString.HasValue(), sqlObj.WhereString).Select(sqlObj.SelectString).OrderByIF(sqlObj.OrderByString.HasValue(), sqlObj.OrderByString));
+                var navList = selector(this.Context.Queryable<object>().AS(navEntityInfo.DbTableName).Filter(navEntityInfo.Type).AddParameters(sqlObj.Parameters).Where(conditionalModels).WhereIF(sqlObj.WhereString.HasValue(), sqlObj.WhereString).Select(sqlObj.SelectString).OrderByIF(sqlObj.OrderByString.HasValue(), sqlObj.OrderByString));
                 if (navList.HasValue())
                 {
                     //var setValue = navList
@@ -649,7 +653,7 @@ namespace SqlSugar
                 result.SelectString = result.SelectString + "," + selectPkName;
             }
         }
-        private void CheckHasRootShortName(Expression rootExpression, Expression childExpression)
+        public void CheckHasRootShortName(Expression rootExpression, Expression childExpression)
         {
             var rootShortName = GetShortName(rootExpression);
             if (rootShortName.HasValue()&& childExpression.ToString().Contains($" {rootShortName}."))

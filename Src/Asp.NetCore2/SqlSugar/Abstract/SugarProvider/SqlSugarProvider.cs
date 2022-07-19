@@ -113,7 +113,7 @@ namespace SqlSugar
         /// </summary>
         public virtual ISugarQueryable<T> Queryable<T>(string shortName)
         {
-            Check.Exception(shortName.HasValue() && shortName.Length > 20, ErrorMessage.GetThrowMessage("shortName参数长度不能超过20，你可能是想用这个方法 db.SqlQueryable(sql)而不是db.Queryable(shortName)", "Queryable.shortName max length 20"));
+            Check.Exception(shortName.HasValue() && shortName.Length > 40, ErrorMessage.GetThrowMessage("shortName参数长度不能超过20，你可能是想用这个方法 db.SqlQueryable(sql)而不是db.Queryable(shortName)", "Queryable.shortName max length 20"));
             var queryable = Queryable<T>();
             queryable.SqlBuilder.QueryBuilder.TableShortName = shortName;
             return queryable;
@@ -674,6 +674,7 @@ namespace SqlSugar
         #region Insertable
         public virtual IInsertable<T> Insertable<T>(T[] insertObjs) where T : class, new()
         {
+            UtilMethods.CheckArray(insertObjs);
             InitMappingInfo<T>();
             InsertableProvider<T> result = this.CreateInsertable(insertObjs);
             return result;
@@ -919,15 +920,17 @@ namespace SqlSugar
         {
             return DeleteNav(this.Queryable<T>().Where(whereExpression).ToList());
         }
-        public UpdateNavProvider<T, T> UpdateNav<T>(T data)
+        public UpdateNavTaskInit<T, T> UpdateNav<T>(T data) where T : class, new()
         {
             return UpdateNav(new List<T>() { data });
         }
-        public UpdateNavProvider<T, T> UpdateNav<T>(List<T> datas)
+        public UpdateNavTaskInit<T, T> UpdateNav<T>(List<T> datas) where T : class, new()
         {
-            var result = new UpdateNavProvider<T, T>();
-            result.Roots = datas;
-            result.Context = this;
+            var result = new UpdateNavTaskInit<T, T>();
+            var provider = new UpdateNavProvider<T, T>();
+            provider._Roots = datas;
+            provider._Context = this;
+            result.UpdateNavProvider = provider;
             return result;
         }
         #endregion

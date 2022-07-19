@@ -303,11 +303,12 @@ namespace SqlSugar
             object value = dr.GetValue(i);
             if (value != null)
             {
-                if (value.GetType() == UtilConstants.DecType)
+                var valueType = value.GetType();
+                if (valueType.IsIn(UtilConstants.FloatType, UtilConstants.DecType, UtilConstants.DobType))
                 {
                     value = Convert.ToUInt32(value);
                 }
-                else if (value.GetType() == UtilConstants.StringType)
+                else if (valueType == UtilConstants.StringType)
                 {
                     return (T)Enum.Parse(typeof(T), value.ObjToString());
                 }
@@ -321,11 +322,12 @@ namespace SqlSugar
             object value = dr.GetValue(i);
             if (value != null)
             {
-                if (value.GetType() == UtilConstants.DecType)
+                var valueType = value.GetType();
+                if (valueType.IsIn(UtilConstants.FloatType, UtilConstants.DecType, UtilConstants.DobType))
                 {
                     value = Convert.ToUInt32(value);
                 }
-                else if (value.GetType() == UtilConstants.StringType)
+                else if (valueType == UtilConstants.StringType)
                 {
                     return (T)Enum.Parse(typeof(T), value.ObjToString());
                 }

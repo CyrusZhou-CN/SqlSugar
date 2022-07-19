@@ -246,7 +246,7 @@ namespace SqlSugar
             {
                 resolveExpress.PgSqlIsAutoToLower = true;
             }
-            resolveExpress.SugarContext = new ExpressionOutParameter() { Context = this.Context  };
+            resolveExpress.SugarContext = new ExpressionOutParameter() { Context = this.Context, QueryBuilder = this } ;
             resolveExpress.RootExpression = expression;
             resolveExpress.JoinQueryInfos = Builder.QueryBuilder.JoinQueryInfos;
             resolveExpress.IsSingle = IsSingle()&& resolveType!= ResolveExpressType.WhereMultiple;
@@ -273,6 +273,38 @@ namespace SqlSugar
             }
             return result;
         }
+
+        internal string GetFilters(Type type)
+        {
+            var result = "";
+            if (this.Context != null)
+            {
+                var db = Context;
+                BindingFlags flag = BindingFlags.Instance | BindingFlags.NonPublic;
+                var index = 0;
+                if (db.QueryFilter.GeFilterList != null)
+                {
+                    foreach (var item in db.QueryFilter.GeFilterList)
+                    {
+                        PropertyInfo field = item.GetType().GetProperty("exp", flag);
+                        if (field != null)
+                        {
+                            Type ChildType = item.GetType().GetProperty("type", flag).GetValue(item, null) as Type;
+                            if (ChildType == type)
+                            {
+                                var entityInfo = db.EntityMaintenance.GetEntityInfo(ChildType);
+                                var exp = field.GetValue(item, null) as Expression;
+                                var whereStr = index==0 ? " " : " AND ";
+                                index++;
+                                result += (whereStr + GetExpressionValue(exp, ResolveExpressType.WhereSingle).GetString());
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
         public virtual string ToSqlString()
         {
             string oldOrderBy = this.OrderByValue;
@@ -730,6 +762,7 @@ namespace SqlSugar
 
         #region NoCopy
         internal bool IsClone { get; set; }
+        public bool NoCheckInclude { get;  set; }
         #endregion
 
         private string GetTableName(string entityName)

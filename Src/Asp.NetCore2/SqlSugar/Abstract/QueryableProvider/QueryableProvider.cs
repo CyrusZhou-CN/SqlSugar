@@ -46,6 +46,22 @@ namespace SqlSugar
                 return this.Context.EntityMaintenance.GetEntityInfo<T>();
             }
         }
+        public ISugarQueryable<T> IncludeLeftJoin(Expression<Func<T, object>> LeftObject)
+        {
+            MemberExpression memberExpression;
+            string navObjectName;
+            EntityColumnInfo navColumn, navPkColumn;
+            EntityInfo navEntityInfo;
+            ExpressionTool.GetOneToOneInfo(this.Context,LeftObject, out memberExpression, out navObjectName, out navColumn, out navEntityInfo, out navPkColumn);
+            var shortName = $"pnv_{navObjectName}";
+            var mainShortName = memberExpression.Expression.ToString();
+            this.QueryBuilder.TableShortName = mainShortName;
+            var onWhere = $"{shortName}.{navPkColumn.DbColumnName}={mainShortName}.{navColumn.DbColumnName}";
+            UtilMethods.IsNullReturnNew(this.Context.TempItems);
+            this.AddJoinInfo(navEntityInfo.DbTableName, shortName, onWhere, JoinType.Left);
+            return this;
+        }
+
         public ISugarQueryable<T, T2> LeftJoin<T2>(ISugarQueryable<T2> joinQueryable, Expression<Func<T, T2, bool>> joinExpression)
         {
             this.Context.InitMappingInfo<T2>();
@@ -193,7 +209,15 @@ namespace SqlSugar
             _Filter(FilterName, isDisabledGobalFilter);
             return this;
         }
-
+        public ISugarQueryable<T> Filter(Type type) 
+        {
+            var whereString= QueryBuilder.GetFilters(type);
+            if (whereString.HasValue()) 
+            {
+                this.Where(whereString);
+            }
+            return this;
+        }
         public virtual ISugarQueryable<T> Mapper(Action<T> mapperAction)
         {
             this.MapperAction=UtilMethods.IsNullReturnNew(this.MapperAction);
@@ -987,8 +1011,9 @@ namespace SqlSugar
         {
             if (this.QueryBuilder.Includes != null && this.QueryBuilder.Includes.Count > 0)
             {
-                var list = this.ToList().Select(expression.Compile()).ToList();
-                return list;
+                return NavSelectHelper.GetList(expression,this);
+               // var list = this.ToList().Select(expression.Compile()).ToList();
+               // return list;
             }
             else 
             {
@@ -1000,9 +1025,7 @@ namespace SqlSugar
         {
             if (this.QueryBuilder.Includes != null && this.QueryBuilder.Includes.Count > 0)
             {
-                var result = await this.ToListAsync();
-                var list =  result.Select(expression.Compile()).ToList();
-                return list;
+                return await NavSelectHelper.GetListAsync(expression, this);
             }
             else
             {
@@ -1161,7 +1184,7 @@ namespace SqlSugar
                 this.QueryBuilder.IsDistinct==false) 
             {
 
-                return this.Clone().Select<int>(" COUNT(1) ").ToList().First();
+                return this.Clone().Select<int>(" COUNT(1) ").ToList().FirstOrDefault();
             }
             MappingTableList expMapping;
             int result;
@@ -1981,7 +2004,12 @@ namespace SqlSugar
         {
             if (this.QueryBuilder.Includes!=null&&this.QueryBuilder.Includes.Count > 0)
             {
-                var list = this.ToPageList(pageIndex,pageSize,ref totalNumber).Select(expression.Compile()).ToList();
+                if (pageIndex == 0)
+                    pageIndex = 1;
+                var list = this.Clone().Skip((pageIndex-1)*pageSize).Take(pageSize).ToList(expression);
+                var countQueryable = this.Clone();
+                countQueryable.QueryBuilder.Includes = null;
+                totalNumber = countQueryable.Count();
                 return list;
             }
             else
@@ -2173,7 +2201,7 @@ namespace SqlSugar
              this.QueryBuilder.IsDistinct==false)
             {
                 var list = await this.Clone().Select<int>(" COUNT(1) ").ToListAsync();
-                return list.First();
+                return list.FirstOrDefault();
             }
             MappingTableList expMapping;
             int result;
@@ -2263,8 +2291,12 @@ namespace SqlSugar
         {
             if (this.QueryBuilder.Includes!=null&&this.QueryBuilder.Includes.Count > 0)
             {
-                var pList = await this.ToPageListAsync(pageIndex, pageSize, totalNumber);
-                var list = pList.Select(expression.Compile()).ToList();
+                if (pageIndex == 0)
+                    pageIndex = 1;
+                var list =await this.Clone().Skip((pageIndex - 1) * pageSize).Take(pageSize).ToListAsync(expression);
+                var countQueryable = this.Clone();
+                countQueryable.QueryBuilder.Includes = null;
+                totalNumber.Value =await countQueryable.CountAsync();
                 return list;
             }
             else
@@ -2787,7 +2819,7 @@ namespace SqlSugar
             if (this.QueryBuilder.Includes != null) 
             {
                 var managers=(this.QueryBuilder.Includes  as List<object>);
-                if (this.QueryBuilder.SelectValue.HasValue()) 
+                if (this.QueryBuilder.SelectValue.HasValue()&& this.QueryBuilder.NoCheckInclude==false) 
                 {
                     Check.ExceptionEasy("To use includes, use select after tolist()", "使用Includes请在ToList()之后在使用Select");
                 }
