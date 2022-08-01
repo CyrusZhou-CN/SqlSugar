@@ -97,6 +97,10 @@
     <Compile Include="Models\OrderItem.cs" />
     <Compile Include="Demo\Demo0_SqlSugarClient.cs" />
     <Compile Include="Models\ViewOrder.cs" />
+    <Compile Include="UnitTest\UnitOneToOneN2.cs" />
+    <Compile Include="UnitTest\UnitManyToManyUpdate.cs" />
+    <Compile Include="UnitTest\UnitManyToMay1231.cs" />
+    <Compile Include="UnitTest\UnitOneToOneN.cs" />
     <Compile Include="UnitTest\UCustom024.cs" />
     <Compile Include="UnitTest\UCustomNavigate01.cs" />
     <Compile Include="UnitTest\Models\DSPersonScheduleModel.cs" />
@@ -111,6 +115,7 @@
     <Compile Include="UnitTest\UCustom020.cs" />
     <Compile Include="UnitTest\UCustom019.cs" />
     <Compile Include="UnitTest\UintDynamic.cs" />
+    <Compile Include="UnitTest\ULock.cs" />
     <Compile Include="UnitTest\UNavDynamic111N.cs" />
     <Compile Include="UnitTest\UnitManyToMany2.cs" />
     <Compile Include="UnitTest\UnitManyToMany.cs" />
@@ -140,6 +145,8 @@
     <Compile Include="UnitTest\UDelete.cs" />
     <Compile Include="UnitTest\UFastest.cs" />
     <Compile Include="UnitTest\UConfig.cs" />
+    <Compile Include="UnitTest\UnitUpdateNav2.cs" />
+    <Compile Include="UnitTest\UnitUpdateNav.cs" />
     <Compile Include="UnitTest\UOneManyMany5.cs" />
     <Compile Include="UnitTest\UOneManyMany4.cs" />
     <Compile Include="UnitTest\UOneManyMany3.cs" />

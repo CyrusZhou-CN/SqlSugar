@@ -351,6 +351,10 @@ namespace SqlSugar
             {
                 this.Context.Parameters.AddRange(newContext.Parameters);
             }
+            if (this.Context.SingleTableNameSubqueryShortName == "Subqueryable()") 
+            {
+                this.Context.SingleTableNameSubqueryShortName = newContext.SingleTableNameSubqueryShortName;
+            }
             return newContext.Result.GetResultString();
         }
         public string GetNewExpressionValue(Expression item,ResolveExpressType type)
@@ -503,7 +507,11 @@ namespace SqlSugar
                     if (property.PropertyType.IsClass())
                     {
                         var comumnInfo=property.GetCustomAttribute<SugarColumn>();
-                        if (comumnInfo != null && comumnInfo.IsJson)
+                        if (comumnInfo != null && comumnInfo.IsJson && isSameType)
+                        {
+                            asName = GetAsNameAndShortName(item, shortName, property);
+                        }
+                        else if(comumnInfo != null && comumnInfo.IsJson)
                         {
                             asName = GetAsName(item, shortName, property);
                         }
@@ -557,7 +565,7 @@ namespace SqlSugar
                 var asValue =  packIfElse(GetNewExpressionValue(item)).ObjToString();
                 parameter.Context.Result.Append(this.Context.GetAsString(asName, asValue));
             }
-            else if (item is MethodCallExpression && (item as MethodCallExpression).Method.Name.IsIn("Count", "Any"))
+            else if (item is MethodCallExpression && (item as MethodCallExpression).Method.Name.IsIn("Count", "Any")&&!item.ToString().StartsWith("Subqueryable"))
             {
                 if (this.Context.IsSingle && this.Context.SingleTableNameSubqueryShortName == null)
                 {

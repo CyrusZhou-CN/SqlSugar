@@ -31,6 +31,8 @@ namespace OrmTest
         }
         public static void Init()
         {
+            ULock.Init();
+            UNavQuery01.Init();
             UCustom012.Init();
             Bulk();
             CodeFirst();

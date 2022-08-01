@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.32407.337
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32714.290
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlSeverTest", "SqlSeverTest\SqlSeverTest.csproj", "{B44F2513-E55B-480F-A41C-685DDD083355}"
 EndProject
@@ -40,6 +40,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CustomDbTest", "CustomDbTest\CustomDbTest.csproj", "{7CAAE872-4A27-4373-B44C-504C5E6DDB85}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Json2Sql", "Json2Sql\Json2Sql.csproj", "{0B4998EE-28FB-4B7E-8976-B3261299B425}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "QuestDbTest", "QuestDbTest\QuestDbTest.csproj", "{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OpenGaussTest", "OpenGaussTest\OpenGaussTest.csproj", "{0016A41A-3D68-42EC-B812-D021EEB91535}"
 EndProject
@@ -269,6 +271,18 @@ Global
 		{0B4998EE-28FB-4B7E-8976-B3261299B425}.Release|ARM32.Build.0 = Release|Any CPU
 		{0B4998EE-28FB-4B7E-8976-B3261299B425}.Release|x86.ActiveCfg = Release|Any CPU
 		{0B4998EE-28FB-4B7E-8976-B3261299B425}.Release|x86.Build.0 = Release|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Debug|ARM32.ActiveCfg = Debug|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Debug|ARM32.Build.0 = Debug|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Debug|x86.Build.0 = Debug|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Release|ARM32.ActiveCfg = Release|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Release|ARM32.Build.0 = Release|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Release|x86.ActiveCfg = Release|Any CPU
+		{EBF02572-80A5-4D3A-B0E3-4308F9CF23CF}.Release|x86.Build.0 = Release|Any CPU
 		{0016A41A-3D68-42EC-B812-D021EEB91535}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0016A41A-3D68-42EC-B812-D021EEB91535}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0016A41A-3D68-42EC-B812-D021EEB91535}.Debug|ARM32.ActiveCfg = Debug|Any CPU

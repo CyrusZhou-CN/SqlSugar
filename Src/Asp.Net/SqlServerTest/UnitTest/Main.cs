@@ -31,7 +31,13 @@ namespace OrmTest
         }
         public static void Init()
         {
-
+            UnitOneToOneN2.Init();
+            UnitManyToManyUpdate.Init();
+            UnitManyToMay1231.Init();
+            UnitUpdateNav2.Init();
+            UnitUpdateNav.Init();
+            UnitOneToOneN.Init();
+            ULock.Init();
             UnitManyToMany2.Init();
             UOneManyMany5.init();
             UOneManyMany4.init();

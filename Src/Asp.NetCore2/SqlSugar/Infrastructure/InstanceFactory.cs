@@ -411,7 +411,7 @@ namespace SqlSugar
         private static Restult GetCacheInstance<Restult>(string className, Type[] types)
         {
             var cacheKey = className + string.Join(",", types.Select(it => it.FullName));
-            Type type;
+            Type type=null;
             if (typeCache.ContainsKey(cacheKey))
             {
                 type = typeCache[cacheKey];
@@ -426,7 +426,11 @@ namespace SqlSugar
                     }
                     else 
                     {
-                        type = GetCustomTypeByClass(className + "`" + types.Length).MakeGenericType(types);
+                        var custom = GetCustomTypeByClass(className + "`" + types.Length);
+                        if (custom != null)
+                        {
+                            type = custom.MakeGenericType(types);
+                        }
                         if (type == null) 
                         {
                             type = Type.GetType(className + "`" + types.Length, true).MakeGenericType(types);
@@ -452,7 +456,11 @@ namespace SqlSugar
             }
             else 
             {
-                type = GetCustomTypeByClass(className + "`" + types.Length).MakeGenericType(types);
+                var custom = GetCustomTypeByClass(className + "`" + types.Length);
+                if (custom != null) 
+                {
+                    type = custom.MakeGenericType(types);
+                }
                 if (type == null) 
                 {
                     type = Type.GetType(className + "`" + types.Length, true).MakeGenericType(types);
