@@ -77,6 +77,11 @@
     <Compile Include="Models\TestTree.cs" />
     <Compile Include="Models\Tree.cs" />
     <Compile Include="Models\ViewOrder.cs" />
+    <Compile Include="UnitTest\Unit01.cs" />
+    <Compile Include="UnitTest\UnitByteArray.cs" />
+    <Compile Include="UnitTest\UnitNavInsertadfa1.cs" />
+    <Compile Include="UnitTest\UnitNavInsertIssue.cs" />
+    <Compile Include="UnitTest\UnitInsertNavN.cs" />
     <Compile Include="UnitTest\Main.cs" />
     <Compile Include="UnitTest\Models\Export.cs" />
     <Compile Include="UnitTest\Models\ExToCon.cs" />
@@ -90,6 +95,8 @@
     <Compile Include="UnitTest\UCustom02.cs" />
     <Compile Include="UnitTest\UInsert.cs" />
     <Compile Include="UnitTest\UJson.cs" />
+    <Compile Include="UnitTest\UNavTest.cs" />
+    <Compile Include="UnitTest\UnitTestReturnPkList.cs" />
     <Compile Include="UnitTest\Updateable.cs" />
     <Compile Include="UnitTest\UQueryable.cs" />
     <Compile Include="UnitTest\UQueryableAsync.cs" />

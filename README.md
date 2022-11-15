@@ -14,16 +14,16 @@ An ORM framework from the future
 Using SqlSugar is very simple , And it's powerful.
 
 ## Description
-
-- Support SqlServer、MySql、PgSql and Oracle  insert blukcopy  
+- Support Cross database query
+- Support SqlServer、MySql、PgSql and Oracle  insert bulkcopy  
 - Split table big data self-processing 
 - Support Multi-tenant, multi-library transactions
-- Support Support CodeFirst data migration.
+- Support CodeFirst data migration.
 - Support Join query 、  Union all 、 Subquery 
 - Support Configure the query  
 - Support DbFirst import entity class from database, or use Generation Tool.
 - Support one-to-many and many-to-many navigation properties
-- Support MySql、SqlServer、Sqlite、Oracle 、 postgresql 、达梦、人大金仓 、神通数据库、MsAccess、Custom
+- Support MySql、SqlServer、Sqlite、Oracle 、 postgresql 、QuestDb、ClickHouse、达梦、人大金仓 、神通数据库、瀚高、MsAccess、华为GaussDB、GBase 8s、Odbc、Custom
 - Support  AOP 、 Diff Log 、 Query Filter 
 
 ##  Documentation
@@ -32,7 +32,7 @@ Using SqlSugar is very simple , And it's powerful.
  <a target="_blank" href="https://github.com/donet5/SqlSugar/wiki/NUGET">Nuget</a>| <a href="https://www.donet5.com/Home/Doc?typeId=1187">Query</a> | <a  target="_blank" href="https://www.donet5.com/Home/Doc?typeId=1193"> Insert </a> |<a  target="_blank" href="https://www.donet5.com/Home/Doc?typeId=1191">Update</a>|    <a  target="_blank" href="https://www.donet5.com/Home/Doc?typeId=1195">Delete</a>    | 
 <a target="_blank" href="https://github.com/donet5/SqlSugar/wiki/Create--database-operation-object"> Start guide</a>  | <a target="_bank" href="https://www.donet5.com/Home/Doc?typeId=1185">Join query </a> |<a href="https://www.donet5.com/Home/Doc?typeId=2422">Insert without entity </a> | <a href="https://www.donet5.com/Home/Doc?typeId=2423">Update without entity</a>  | <a href="https://www.donet5.com/Home/Doc?typeId=2424">  Delete without entity </a>   |     |
 |<a href="https://www.donet5.com/Home/Doc?typeId=2246">Multiple databases</a> | <a target="_bank" href="https://www.donet5.com/Home/Doc?typeId=1188">Include query</a>|<a target="_bank" href="https://www.donet5.com/Home/Doc?typeId=2430">Include Insert</a>| <a target="_bank" href="https://www.donet5.com/Home/Doc?typeId=2432">Include Update</a>| <a target="_bank" href="https://www.donet5.com/Home/Doc?typeId=2431">Include Delete</a> 
- |<a  href="https://www.donet5.com/Home/Doc"><font color="red">中文文档</font></a>|||||
+ |<a  href="https://www.donet5.com/Home/Doc"><font color="red">中文文档</font></a>|<a  href="https://www.donet5.com/Home/Doc?typeId=2244">Cross database query</a>|<a  href="https://www.donet5.com/Home/Doc?typeId=2420">Insert by json</a>|<a  href="https://www.donet5.com/Home/Doc?typeId=2420">Update by json</a>|<a  href="https://www.donet5.com/Home/Doc?typeId=2420">Delete by json</a>|
 
 ##  Feature characteristic
 
@@ -69,22 +69,19 @@ var list=db.Queryable<Test>()
            
 //insert by nav
  db.InsertNav(list) //Finer operation than EFCore's SaveChange
-            .Include(z1 => z1.SchoolA) 
-            .ThenInclude(z1 => z1.RoomList)  
+            .Include(z1 => z1.SchoolA).ThenInclude(z1 => z1.RoomList)//multi-level
             .Include(z1 => z1.Books) 
             .ExecuteCommand(); 
             
 //delete by nav               
  db.DeleteNav<Student>(it=>it.Id==1) 
-            .Include(z1 => z1.SchoolA) 
-            .ThenInclude(z1 => z1.RoomList) st
+            .Include(z1 => z1.SchoolA) .ThenInclude(z1 => z1.RoomList)//multi-level
             .Include(z1 => z1.Books) 
             .ExecuteCommand();  
             
 //update by nav     
  db.UpdateNav(list)
-            .Include(z1 => z1.SchoolA) 
-            .ThenInclude(z1 => z1.RoomList)  
+            .Include(z1 => z1.SchoolA) .ThenInclude(z1 => z1.RoomList)//multi-level
             .Include(z1 => z1.Books) 
             .ExecuteCommand();           
 ```

@@ -3,11 +3,27 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 namespace SqlSugar
 {
     public partial class DefaultDbMethod : IDbMethods
     {
+        public virtual string RowNumber(MethodCallExpressionModel model) 
+        {
+            if (model.Args.Count == 1)
+            {
+                return $"row_number() over(order by {model.Args[0].MemberName.ObjToString().TrimEnd('\'').TrimStart('\'')})";
+            }
+            else
+            {
+                return $"row_number() over( partition by {model.Args[1].MemberName.ObjToString().TrimEnd('\'').TrimStart('\'')} order by {model.Args[0].MemberName.ObjToString().TrimEnd('\'').TrimStart('\'')})";
+            }
+        }
+        public virtual string RowCount(MethodCallExpressionModel model) 
+        {
+            return "count(1) over()";
+        }
         public virtual string IIF(MethodCallExpressionModel model)
         {
             var parameter = model.Args[0];
@@ -84,9 +100,17 @@ namespace SqlSugar
             }
             var value = model.Args[1].MemberName;
             string inValueString = null;
+            var isNvarchar = model.Args.Count == 3;
             if (inValues != null && inValues.Count > 0)
-            {            
-                    inValueString = inValues.ToArray().ToJoinSqlInVals();             
+            {
+                if (isNvarchar&& model.Args[2].MemberValue.Equals(true))
+                {
+                    inValueString = inValues.ToArray().ToJoinSqlInValsN();
+                }
+                else
+                {
+                    inValueString = inValues.ToArray().ToJoinSqlInVals();
+                }
             }
             if (inValueString.IsNullOrEmpty())
             {
@@ -220,6 +244,11 @@ namespace SqlSugar
             {
                 return string.Format(" DateName({0},{1}) ", parameter2.MemberValue, parameter.MemberName);
             }
+        }
+
+        public virtual string GetStringJoinSelector(string result, string separator) 
+        {
+            return $"string_agg(({result})::text,'{separator}') ";
         }
 
         public virtual string ToInt32(MethodCallExpressionModel model)
@@ -480,11 +509,41 @@ namespace SqlSugar
             return string.Format(" DATEDIFF({0},{1},{2}) ", parameter.MemberValue?.ToString().ToSqlFilter(), parameter2.MemberName, parameter3.MemberName); ;
         }
 
-        public virtual string Format(MethodCallExpressionModel model)
+        public virtual string FormatRowNumber(MethodCallExpressionModel model)
         {
             var str = model.Args[0].MemberValue.ObjToString();
-            var array = model.Args.Skip(1).Select(it => it.IsMember?it.MemberName:it.MemberValue).ToArray();
-             return string.Format("'"+str+ "'", array);
+            var array = model.Args.Skip(1).Select(it => it.IsMember ? it.MemberName : it.MemberValue).ToArray();
+            return string.Format("'" + str + "'", array);
+        }
+        public virtual string Format(MethodCallExpressionModel model)
+        {
+           
+            var str ="'"+ model.Args[0].MemberValue.ObjToString()+"'";
+            var revalue = MergeString("'", "$1", "'");
+            if (revalue.Contains("concat("))
+            {
+                return FormatConcat(model);
+            }
+            str =Regex.Replace(str, @"(\{\d+?\})", revalue);
+            var array = model.Args.Skip(1).Select(it => it.IsMember?it.MemberName:it.MemberValue)
+                .Select(it=>ToString(new MethodCallExpressionModel() { Args=new List<MethodCallExpressionArgs>() {
+                 new MethodCallExpressionArgs(){ IsMember=true, MemberName=it }
+                } })).ToArray();
+             return string.Format(""+str+ "", array);
+        }
+        private  string FormatConcat(MethodCallExpressionModel model)
+        {
+
+            var str = "concat('" + model.Args[0].MemberValue.ObjToString() + "')";
+            str = Regex.Replace(str, @"(\{\d+?\})", "',$1,'");
+            var array = model.Args.Skip(1).Select(it => it.IsMember ? it.MemberName : it.MemberValue)
+                .Select(it => ToString(new MethodCallExpressionModel()
+                {
+                    Args = new List<MethodCallExpressionArgs>() {
+                 new MethodCallExpressionArgs(){ IsMember=true, MemberName=it }
+                }
+                })).ToArray();
+            return string.Format("" + str + "", array);
         }
 
         public virtual string Abs(MethodCallExpressionModel model)
@@ -552,9 +611,63 @@ namespace SqlSugar
             var parameter4 = model.Args[3];
             return $" STUFF ({parameter1.MemberName}, {parameter2.MemberName}, {parameter3.MemberName},  {parameter4.MemberName}) ";
         }
+        public virtual string Exists(MethodCallExpressionModel model) 
+        {
+            var parameter1 = model.Args[0];
+            if (model.Args.Count > 1)
+            {
+                var parameter2 = model.Args[1];
+                if (UtilMethods.IsParentheses(parameter1.MemberName))
+                {
+                    parameter1.MemberName = $" {parameter1.MemberName.ObjToString().Trim().TrimEnd(')')} AND {parameter2.MemberName}) ";
+                }
+                else
+                {
+                    parameter1.MemberName = $" {parameter1.MemberName} AND {parameter2.MemberName} ";
+                }
+            }
+            if (UtilMethods.IsParentheses(parameter1.MemberName))
+            {
+                return $" Exists{parameter1.MemberName} ";
+            }
+            else
+            {
+                return $" Exists({parameter1.MemberName}) ";
+            }
+        }
+
         public virtual string GetDateString(string dateValue, string format)
         {
             return null;
+        }
+        public virtual string GetForXmlPath() 
+        {
+            return null;
+        }
+
+        public virtual string JsonField(MethodCallExpressionModel model)
+        {
+            throw new NotImplementedException("Current database no support");
+        }
+
+        public virtual string JsonContainsFieldName(MethodCallExpressionModel model)
+        {
+            throw new NotImplementedException("Current database no support");
+        }
+
+        public virtual string JsonArrayLength(MethodCallExpressionModel model)
+        {
+            throw new NotImplementedException("Current database no support");
+        }
+
+        public virtual string JsonParse(MethodCallExpressionModel model)
+        {
+            throw new NotImplementedException("Current database no support");
+        }
+        public string JsonLike(MethodCallExpressionModel model) 
+        {
+            model.Args[0].MemberName = ToString(model);
+            return Contains(model);
         }
     }
 }

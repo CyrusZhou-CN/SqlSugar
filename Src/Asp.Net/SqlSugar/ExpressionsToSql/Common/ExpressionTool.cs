@@ -130,6 +130,14 @@ namespace SqlSugar
             return newExp;
         }
 
+        public static string GetMethodName(Expression expression) 
+        {
+            if (expression is MethodCallExpression) 
+            {
+                return (expression as MethodCallExpression).Method.Name;
+            }
+            return null;
+        }
 
         public static Type GetMemberInfoType(MemberInfo member)
         {
@@ -216,7 +224,7 @@ namespace SqlSugar
                 var mi = memberInfos.Pop();
                 if (mi.MemberType == MemberTypes.Property)
                 {
-                    var objProp = objReference.GetType().GetProperty(mi.Name);
+                    var objProp = objReference.GetType().GetProperties().Where(it=>it.Name== mi.Name).FirstOrDefault();
                     if (objProp == null)
                     {
                         objReference = DynamicInvoke(expression, rootExpression == null ? memberExpr : rootExpression);
@@ -350,6 +358,11 @@ namespace SqlSugar
                     result = true;
                     break;
                 }
+                else if (memberExpr.Expression is BinaryExpression&&(memberExpr.Expression as BinaryExpression).NodeType==ExpressionType.ArrayIndex) 
+                {
+                    result = true;
+                    break;
+                }
                 memberExpr = memberExpr.Expression as MemberExpression;
             }
             return result;
@@ -429,6 +442,109 @@ namespace SqlSugar
         public static bool IsUnConvertExpress(Expression item)
         {
             return item is UnaryExpression && item.NodeType == ExpressionType.Convert;
+        }
+
+        internal static List<NewExpressionInfo> GetNewexpressionInfos(Expression item,ExpressionContext context, BaseResolve baseResolve)
+        {
+            List<NewExpressionInfo> result = new List<NewExpressionInfo>();
+            foreach (MemberBinding binding in ((MemberInitExpression)item).Bindings)
+            {
+                if (binding.BindingType != MemberBindingType.Assignment)
+                {
+                    throw new NotSupportedException();
+                }
+                MemberAssignment memberAssignment = (MemberAssignment)binding;
+                NewExpressionInfo additem = new NewExpressionInfo();
+                if (memberAssignment.Expression is MemberExpression)
+                {
+                    additem.LeftNameName = memberAssignment.Member.Name;
+                    var member = (memberAssignment.Expression as MemberExpression).Expression;
+                    additem.ShortName = member + "";
+                    additem.RightName = (memberAssignment.Expression as MemberExpression).Member.Name;
+                    additem.RightDbName = context.GetDbColumnName(member.Type.Name, additem.RightName);
+                    result.Add(additem);
+                }
+                else if (memberAssignment.Expression is ConstantExpression)
+                {
+                    var value = ((ConstantExpression)memberAssignment.Expression).Value;
+                    //var leftInfo = keys[i];
+                    additem.Type = nameof(ConstantExpression);
+                    additem.RightName = memberAssignment.Member.Name;
+                    additem.ShortName = memberAssignment.Member.Name;
+                    additem.RightName = memberAssignment.Member.Name;
+                    additem.LeftNameName = memberAssignment.Member.Name;
+                    additem.RightDbName = UtilMethods.GetSqlValue(value);
+                    //additem.Value = "";
+                    result.Add(additem);
+                }
+                else 
+                {
+                    var value = baseResolve.GetNewExpressionValue(memberAssignment.Expression);
+                    //var leftInfo = keys[i];
+                    additem.Type = nameof(ConstantExpression);
+                    additem.RightName = memberAssignment.Member.Name;
+                    additem.ShortName = memberAssignment.Member.Name;
+                    additem.RightName = memberAssignment.Member.Name;
+                    additem.LeftNameName = memberAssignment.Member.Name;
+                    additem.RightDbName = value;
+                    //additem.Value = "";
+                    result.Add(additem);
+                }
+
+                }
+                return result;
+        }
+        internal static List<NewExpressionInfo> GetNewDynamicexpressionInfos(Expression item, ExpressionContext context, BaseResolve baseResolve)
+        {
+            List<NewExpressionInfo> result = new List<NewExpressionInfo>();
+            int i = 0;
+            foreach (var binding in ((NewExpression)item).Arguments)
+            {
+                NewExpressionInfo additem = new NewExpressionInfo();
+                var keys = ((NewExpression)item).Members;
+                if (binding is MemberExpression)
+                {
+                    var member = (MemberExpression)binding;
+                    var entityName = member.Expression?.Type?.Name;
+                    //var memberAssignment = binding;
+                    //NewExpressionInfo additem = new NewExpressionInfo();
+                    additem.RightName = member.Member.Name;
+                    additem.ShortName = member.Expression + "";
+                    additem.RightName = member.Member.Name;
+                    additem.RightDbName = context.GetDbColumnName(entityName, additem.RightName);
+                    additem.LeftNameName = member.Member.Name;
+                    //additem.Value = "";
+                    result.Add(additem);
+                }
+                else if (binding is ConstantExpression)
+                {
+                    var value = ((ConstantExpression)binding).Value;
+                    var leftInfo = keys[i];
+                    additem.Type = nameof(ConstantExpression);
+                    additem.RightName = leftInfo.Name;
+                    additem.ShortName = leftInfo.Name;
+                    additem.RightName = leftInfo.Name;
+                    additem.LeftNameName = leftInfo.Name;
+                    additem.RightDbName = UtilMethods.GetSqlValue(value);
+                    //additem.Value = "";
+                    result.Add(additem);
+                }
+                else  
+                {
+                    var value = baseResolve.GetNewExpressionValue(binding);
+                    var leftInfo = keys[i];
+                    additem.Type = nameof(ConstantExpression);
+                    additem.RightName = leftInfo.Name;
+                    additem.ShortName = leftInfo.Name;
+                    additem.RightName = leftInfo.Name;
+                    additem.LeftNameName = leftInfo.Name;
+                    additem.RightDbName = value;
+                    //additem.Value = "";
+                    result.Add(additem);
+                }
+                i++;
+            }
+            return result;
         }
     }
 }

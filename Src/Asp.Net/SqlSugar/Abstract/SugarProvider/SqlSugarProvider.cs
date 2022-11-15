@@ -407,10 +407,11 @@ namespace SqlSugar
             queryable.Where(joinExpression);
             return queryable;
         }
-        public virtual ISugarQueryable<T> Queryable<T>(ISugarQueryable<T> queryable) where T : class, new()
+        public virtual ISugarQueryable<T> Queryable<T>(ISugarQueryable<T> queryable)  
         {
             var sqlobj = queryable.ToSql();
-            var result = this.SqlQueryable<T>(sqlobj.Key).AddParameters(sqlobj.Value);
+            var newQueryable = this.SqlQueryable<object>(sqlobj.Key).AddParameters(sqlobj.Value);
+            var result = newQueryable.Select<T>(newQueryable.QueryBuilder.SelectValue+"");
             result.QueryBuilder.IsSqlQuery = false;
             return result;
         }
@@ -904,6 +905,20 @@ namespace SqlSugar
             result.insertNavProvider = provider;
             return result;
         }
+        public InsertNavTaskInit<T, T> InsertNav<T>(T data, InsertNavRootOptions rootOptions) where T : class, new()
+        {
+            return InsertNav(new List<T>() { data },rootOptions); ;
+        }
+        public InsertNavTaskInit<T, T> InsertNav<T>(List<T> datas, InsertNavRootOptions rootOptions) where T : class, new()
+        {
+            var result = new InsertNavTaskInit<T, T>();
+            var provider = new InsertNavProvider<T, T>();
+            provider._Roots = datas;
+            provider._Context = this;
+            provider._RootOptions = rootOptions;
+            result.insertNavProvider = provider;
+            return result;
+        }
         public DeleteNavTaskInit<T, T> DeleteNav<T>(T data) where T : class, new()
         {
             return DeleteNav(new List<T>() { data });
@@ -932,6 +947,20 @@ namespace SqlSugar
             provider._Context = this;
             result.UpdateNavProvider = provider;
             return result;
+        }
+        public UpdateNavTaskInit<T, T> UpdateNav<T>(T data, UpdateNavRootOptions rootOptions) where T : class, new()
+        {
+            return UpdateNav(new List<T>() { data},rootOptions);
+        }
+        public UpdateNavTaskInit<T, T> UpdateNav<T>(List<T> datas, UpdateNavRootOptions rootOptions) where T : class, new()
+        {
+            var result = new UpdateNavTaskInit<T, T>();
+            var provider = new UpdateNavProvider<T, T>();
+            provider._Roots = datas;
+            provider._RootOptions = rootOptions;
+            provider._Context = this;
+            result.UpdateNavProvider = provider;
+            return result; ;
         }
         #endregion
 
@@ -1033,6 +1062,27 @@ namespace SqlSugar
         {
             return new SimpleClient<T>(this);
         }
+
+        public RepositoryType GetRepository<RepositoryType>() where RepositoryType : ISugarRepository, new()
+        {
+            Type type = typeof(RepositoryType);
+            var isAnyParamter = type.GetConstructors().Any(z => z.GetParameters().Any());
+            object o = null;
+            if (isAnyParamter)
+            {
+                o = Activator.CreateInstance(type, new string[] { null });
+            }
+            else
+            {
+                o = Activator.CreateInstance(type);
+            }
+            var result = (RepositoryType)o;
+            if (result.Context == null)
+            {
+                result.Context = this.Context;
+            }
+            return result;
+        }
         //public virtual SimpleClient GetSimpleClient()
         //{
         //    if (this._SimpleClient == null)
@@ -1131,7 +1181,19 @@ namespace SqlSugar
             {
                 Queues = new QueueList();
             }
-            this.Queues.Add(sql, this.Context.Ado.GetParameters(parsmeters));
+            var pars = this.Context.Ado.GetParameters(parsmeters);
+            if (pars != null)
+            {
+                foreach (var par in pars)
+                {
+                    if (par.ParameterName.StartsWith(":"))
+                    {
+                        par.ParameterName = ("@" + par.ParameterName.Trim(':'));
+                    }
+                }
+            }
+            this.Queues.Add(sql, pars);
+            
         }
         public void AddQueue(string sql, SugarParameter parsmeter)
         {
@@ -1342,9 +1404,32 @@ namespace SqlSugar
         #endregion
 
         #region Other
+        public void Tracking<T>(T data) where T : class, new()
+        {
+            if (data != null)
+            {
+                UtilMethods.IsNullReturnNew(this.TempItems);
+                var key = "Tracking_" + data.GetHashCode() + "";
+                if (!this.TempItems.ContainsKey(key))
+                {
+                    var newT = new T();
+                    FastCopy.Copy(data, newT);
+                    this.TempItems.Add(key, newT);
+                }
+            }
+        }
+        public void Tracking<T>(List<T> datas) where T : class, new()
+        {
+            foreach (var data in datas) 
+            {
+                this.Tracking(data);
+            }
+        }
         public SqlSugarClient CopyNew()
         {
-            return new SqlSugarClient(UtilMethods.CopyConfig(this.Ado.Context.CurrentConnectionConfig));
+            var result= new SqlSugarClient(UtilMethods.CopyConfig(this.Ado.Context.CurrentConnectionConfig));
+            result.QueryFilter = this.QueryFilter;
+            return result;
         }
         public void ThenMapper<T>(IEnumerable<T> list, Action<T> action)
         {

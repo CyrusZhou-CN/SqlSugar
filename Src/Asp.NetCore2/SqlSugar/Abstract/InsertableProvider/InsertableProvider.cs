@@ -70,6 +70,38 @@ namespace SqlSugar
             RestoreMapping();
             return new KeyValuePair<string, List<SugarParameter>>(sql, InsertBuilder.Parameters);
         }
+        public async Task<List<Type>> ExecuteReturnPkListAsync<Type>() 
+        {
+            return await Task.Run(() => ExecuteReturnPkList<Type>());
+        }
+        public virtual List<Type> ExecuteReturnPkList<Type>() 
+        {
+           var pkInfo= this.EntityInfo.Columns.FirstOrDefault(it => it.IsPrimarykey == true);
+            Check.ExceptionEasy(pkInfo==null,"ExecuteReturnPkList need primary key", "ExecuteReturnPkList需要主键");
+            Check.ExceptionEasy(this.EntityInfo.Columns.Count(it => it.IsPrimarykey == true)>1, "ExecuteReturnPkList ，Only support technology single primary key", "ExecuteReturnPkList只支技单主键");
+            var isIdEntity = pkInfo.IsIdentity|| (pkInfo.OracleSequenceName.HasValue()&&this.Context.CurrentConnectionConfig.DbType==DbType.Oracle);
+            if (isIdEntity&&this.InsertObjs.Length==1)
+            {
+                return InsertPkListIdentityCount1<Type>(pkInfo);
+            }
+            else if (isIdEntity && this.InsertBuilder.ConvertInsertReturnIdFunc == null)
+            {
+                return InsertPkListNoFunc<Type>(pkInfo);
+            }
+            else if (isIdEntity && this.InsertBuilder.ConvertInsertReturnIdFunc != null)
+            {
+                return InsertPkListWithFunc<Type>(pkInfo);
+            }
+            else if (pkInfo.UnderType == UtilConstants.LongType)
+            {
+                return InsertPkListLong<Type>();
+            }
+            else
+            {
+                return InsertPkListGuid<Type>(pkInfo);
+            }
+        }
+
         public virtual int ExecuteReturnIdentity()
         {
             if (this.InsertObjs.Count() == 1 && this.InsertObjs.First() == null)
@@ -81,14 +113,14 @@ namespace SqlSugar
             if (InsertBuilder.IsOleDb)
             {
                 var isAuto = false;
-                if (this.Context.CurrentConnectionConfig.IsAutoCloseConnection) 
+                if (this.Context.Ado.IsAnyTran() == false && this.Context.CurrentConnectionConfig.IsAutoCloseConnection) 
                 {
-                    isAuto = true;
+                    isAuto = this.Context.CurrentConnectionConfig.IsAutoCloseConnection;
                     this.Context.CurrentConnectionConfig.IsAutoCloseConnection = false;
                 }
                 result = Ado.GetInt(sql.Split(';').First(), InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray());
                 result = Ado.GetInt(sql.Split(';').Last(), InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray());
-                if (isAuto)
+                if (this.Context.Ado.IsAnyTran() == false && isAuto)
                 {
                     this.Ado.Close();
                     this.Context.CurrentConnectionConfig.IsAutoCloseConnection = isAuto;
@@ -113,14 +145,14 @@ namespace SqlSugar
             if (InsertBuilder.IsOleDb)
             {
                 var isAuto = false;
-                if (this.Context.CurrentConnectionConfig.IsAutoCloseConnection)
+                if (this.Context.Ado.IsAnyTran()==false&&this.Context.CurrentConnectionConfig.IsAutoCloseConnection)
                 {
-                    isAuto = true;
+                    isAuto = this.Context.CurrentConnectionConfig.IsAutoCloseConnection;
                     this.Context.CurrentConnectionConfig.IsAutoCloseConnection = false;
                 }
                 result = Convert.ToInt64(Ado.GetScalar(sql.Split(';').First(), InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray()));
                 result = Convert.ToInt64(Ado.GetScalar(sql.Split(';').Last(), InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray()));
-                if (isAuto)
+                if (this.Context.Ado.IsAnyTran() == false && isAuto)
                 {
                     this.Ado.Close();
                     this.Context.CurrentConnectionConfig.IsAutoCloseConnection = isAuto;
@@ -209,7 +241,28 @@ namespace SqlSugar
         {
             var result = InsertObjs.First();
             var identityKeys = GetIdentityKeys();
-            if (identityKeys.Count == 0) { return this.ExecuteCommand() > 0; }
+            if (identityKeys.Count == 0)
+            {
+                var snowColumn = this.EntityInfo.Columns.FirstOrDefault(it => it.IsPrimarykey && it.UnderType == UtilConstants.LongType);
+                if (snowColumn!=null)
+                {
+              ;
+                    if (Convert.ToInt64(snowColumn.PropertyInfo.GetValue(result)) == 0)
+                    {
+                        var id = this.ExecuteReturnSnowflakeId();
+                        snowColumn.PropertyInfo.SetValue(result, id);
+                    }
+                    else 
+                    {
+                        ExecuteCommand();
+                    }
+                    return true;
+                }
+                else
+                {
+                    return this.ExecuteCommand() > 0;
+                }
+            }
             var idValue = ExecuteReturnBigIdentity();
             Check.Exception(identityKeys.Count > 1, "ExecuteCommandIdentityIntoEntity does not support multiple identity keys");
             var identityKey = identityKeys.First();
@@ -248,7 +301,27 @@ namespace SqlSugar
                 return 0;
             }
             string sql = _ExecuteReturnIdentity();
-            var result =await Ado.GetIntAsync(sql, InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray());
+            var result = 0;
+            if (InsertBuilder.IsOleDb)
+            {
+                var isAuto = false;
+                if (this.Context.Ado.IsAnyTran() == false && this.Context.CurrentConnectionConfig.IsAutoCloseConnection)
+                {
+                    isAuto = this.Context.CurrentConnectionConfig.IsAutoCloseConnection;
+                    this.Context.CurrentConnectionConfig.IsAutoCloseConnection = false;
+                }
+                result = Ado.GetInt(sql.Split(';').First(), InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray());
+                result = Ado.GetInt(sql.Split(';').Last(), InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray());
+                if (this.Context.Ado.IsAnyTran() == false && isAuto)
+                {
+                    this.Ado.Close();
+                    this.Context.CurrentConnectionConfig.IsAutoCloseConnection = isAuto;
+                }
+            }
+            else
+            {
+                result = await Ado.GetIntAsync(sql, InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray());
+            }
             After(sql, result);
             return result;
         }
@@ -261,7 +334,28 @@ namespace SqlSugar
         {
             var result = InsertObjs.First();
             var identityKeys = GetIdentityKeys();
-            if (identityKeys.Count == 0) { return await this.ExecuteCommandAsync() > 0; }
+            if (identityKeys.Count == 0)
+            {
+                var snowColumn = this.EntityInfo.Columns.FirstOrDefault(it => it.IsPrimarykey&& it.UnderType == UtilConstants.LongType);
+                if (snowColumn != null)
+                {
+
+                    if (Convert.ToInt64(snowColumn.PropertyInfo.GetValue(result)) == 0)
+                    {
+                        var id = await this.ExecuteReturnSnowflakeIdAsync();
+                        snowColumn.PropertyInfo.SetValue(result, id);
+                    }
+                    else 
+                    {
+                        await this.ExecuteCommandAsync();
+                    }
+                    return true;
+                }
+                else
+                {
+                    return await this.ExecuteCommandAsync() > 0;
+                }
+            }
             var idValue =await ExecuteReturnBigIdentityAsync();
             Check.Exception(identityKeys.Count > 1, "ExecuteCommandIdentityIntoEntity does not support multiple identity keys");
             var identityKey = identityKeys.First();
@@ -288,7 +382,27 @@ namespace SqlSugar
                 return 0;
             }
             string sql = _ExecuteReturnBigIdentity();
-            var result = Convert.ToInt64(await Ado.GetScalarAsync(sql, InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray()));
+            long result = 0;
+            if (InsertBuilder.IsOleDb)
+            {
+                var isAuto = false;
+                if (this.Context.Ado.IsAnyTran() == false && this.Context.CurrentConnectionConfig.IsAutoCloseConnection)
+                {
+                    isAuto = this.Context.CurrentConnectionConfig.IsAutoCloseConnection;
+                    this.Context.CurrentConnectionConfig.IsAutoCloseConnection = false;
+                }
+                result = Ado.GetInt(sql.Split(';').First(), InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray());
+                result = Ado.GetInt(sql.Split(';').Last(), InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray());
+                if (this.Context.Ado.IsAnyTran() == false && isAuto)
+                {
+                    this.Ado.Close();
+                    this.Context.CurrentConnectionConfig.IsAutoCloseConnection = isAuto;
+                }
+            }
+            else
+            {
+                result = Convert.ToInt64(await Ado.GetScalarAsync(sql, InsertBuilder.Parameters == null ? null : InsertBuilder.Parameters.ToArray()));
+            }
             After(sql, result);
             return result;
         }
@@ -303,6 +417,10 @@ namespace SqlSugar
             result.Context= this.Context;
             result.Inserable = this;
             return result;
+        }
+        public IInsertable<T> AsType(Type tableNameType) 
+        {
+            return AS(this.Context.EntityMaintenance.GetEntityInfo(tableNameType).DbTableName);
         }
         public IInsertable<T> AS(string tableName)
         {
@@ -428,7 +546,14 @@ namespace SqlSugar
         }
 
 
-
+        public IInsertable<T> EnableDiffLogEventIF(bool isDiffLogEvent, object diffLogBizData) 
+        {
+            if (isDiffLogEvent) 
+            {
+                return EnableDiffLogEvent(diffLogBizData);
+            }
+            return this;
+        }
         public IInsertable<T> EnableDiffLogEvent(object businessData = null)
         {
             //Check.Exception(this.InsertObjs.HasValue() && this.InsertObjs.Count() > 1, "DiffLog does not support batch operations");

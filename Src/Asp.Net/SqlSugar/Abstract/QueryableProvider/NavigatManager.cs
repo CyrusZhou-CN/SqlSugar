@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -11,6 +12,8 @@ namespace SqlSugar
     public class NavigatManager<T>
     {
         public SqlSugarProvider Context { get; set; }
+        public bool IsCrossQueryWithAttr { get; set; }
+        public Dictionary<string, string> CrossQueryItems { get; set; }
         public Func<ISugarQueryable<object>, List<object>> SelectR1 { get; set; }
         public Func<ISugarQueryable<object>, List<object>> SelectR2 { get; set; }
         public Func<ISugarQueryable<object>, List<object>> SelectR3 { get; set; }
@@ -201,8 +204,12 @@ namespace SqlSugar
             var bEntity = navObjectNameColumnInfo.PropertyInfo.PropertyType.GetGenericArguments()[0];
             var bEntityInfo = this.Context.EntityMaintenance.GetEntityInfo(bEntity);
             var bPkColumn = bEntityInfo.Columns.FirstOrDefault(it => it.IsPrimarykey);
-            this.Context.InitMappingInfo(bEntity);
+            Check.ExceptionEasy(bPkColumn==null, $"{bEntityInfo.EntityName} need primary key", $"{bEntityInfo.EntityName} 实体需要配置主键");
+            var bDb = this.Context;
+            bDb = GetCrossDatabase(bDb,bEntity);
+            bDb.InitMappingInfo(bEntity);
             var listItemPkColumn = listItemEntity.Columns.Where(it => it.IsPrimarykey).FirstOrDefault();
+            Check.ExceptionEasy(listItemPkColumn == null, $"{listItemEntity.EntityName} need primary key", $"{listItemEntity.EntityName} 实体需要配置主键");
             var ids = list.Select(it => it.GetType().GetProperty(listItemPkColumn.PropertyName).GetValue(it)).Select(it => it == null ? "null" : it).Distinct().ToList();
             var mappingEntity = this.Context.EntityMaintenance.GetEntityInfo(navObjectNameColumnInfo.Navigat.MappingType);
             var aColumn = mappingEntity.Columns.First(it => it.PropertyName == navObjectNameColumnInfo.Navigat.MappingAId);
@@ -215,7 +222,10 @@ namespace SqlSugar
                 FieldValue = String.Join(",", ids),
                 CSharpTypeName = aColumn.PropertyInfo.PropertyType.Name
             }));
-            var abids = this.Context.Queryable<object>().AS(mappingEntity.DbTableName).Where(conditionalModels).Select<SugarAbMapping>($"{aColumn.DbColumnName} as aid,{bColumn.DbColumnName} as bid").ToList();
+            var abDb = this.Context;
+            abDb = GetCrossDatabase(abDb, mappingEntity.Type);
+            var queryable = abDb.Queryable<object>();
+            var abids = queryable.AS(mappingEntity.DbTableName).Filter(mappingEntity.Type).Where(conditionalModels).Select<SugarAbMapping>($"{queryable.SqlBuilder.GetTranslationColumnName(aColumn.DbColumnName)} as aid,{queryable.SqlBuilder.GetTranslationColumnName(bColumn.DbColumnName)} as bid").ToList();
 
             List<IConditionalModel> conditionalModels2 = new List<IConditionalModel>();
             conditionalModels2.Add((new ConditionalModel()
@@ -226,7 +236,7 @@ namespace SqlSugar
                 CSharpTypeName = bColumn.PropertyInfo.PropertyType.Name
             }));
             var sql = GetWhereSql();
-            var bList = selector(this.Context.Queryable<object>().AS(bEntityInfo.DbTableName).Filter(bEntityInfo.Type).AddParameters(sql.Parameters).Where(conditionalModels2).WhereIF(sql.WhereString.HasValue(),sql.WhereString).Select(sql.SelectString).OrderByIF(sql.OrderByString.HasValue(),sql.OrderByString));  
+            var bList = selector(bDb.Queryable<object>().AS(bEntityInfo.DbTableName).Filter(bEntityInfo.Type).AddParameters(sql.Parameters).Where(conditionalModels2).WhereIF(sql.WhereString.HasValue(),sql.WhereString).Select(sql.SelectString).OrderByIF(sql.OrderByString.HasValue(),sql.OrderByString));  
             if (bList.HasValue())
             {
                 foreach (var listItem in list)
@@ -306,8 +316,10 @@ namespace SqlSugar
             var navColumn = listItemEntity.Columns.FirstOrDefault(it => it.PropertyName == navObjectNameColumnInfo.Navigat.Name);
             Check.ExceptionEasy(navColumn == null, "OneToOne navigation configuration error", $"OneToOne导航配置错误： 实体{ listItemEntity.EntityName } 不存在{navObjectNameColumnInfo.Navigat.Name}");
             var navType = navObjectNamePropety.PropertyType;
-            var navEntityInfo = this.Context.EntityMaintenance.GetEntityInfo(navType);
-            this.Context.InitMappingInfo(navEntityInfo.Type);
+            var db = this.Context;
+            db = GetCrossDatabase(db,navType);
+            var navEntityInfo = db.EntityMaintenance.GetEntityInfo(navType);
+            db.InitMappingInfo(navEntityInfo.Type);
             var navPkColumn = navEntityInfo.Columns.Where(it => it.IsPrimarykey).FirstOrDefault();
             Check.ExceptionEasy(navPkColumn==null&& navObjectNameColumnInfo.Navigat.Name2==null, navEntityInfo.EntityName+ "need primarykey", navEntityInfo.EntityName + " 需要主键");
             if (navObjectNameColumnInfo.Navigat.Name2.HasValue()) 
@@ -326,7 +338,8 @@ namespace SqlSugar
             if (list.Any()&&navObjectNamePropety.GetValue(list.First()) == null)
             {
                 var sqlObj = GetWhereSql(navObjectNameColumnInfo.Navigat.Name);
-                var navList = selector(this.Context.Queryable<object>().AS(navEntityInfo.DbTableName)
+                var navList = selector(db.Queryable<object>().Filter(navEntityInfo.Type).AS(navEntityInfo.DbTableName)
+                    .WhereIF(navObjectNameColumnInfo.Navigat.WhereSql.HasValue(), navObjectNameColumnInfo.Navigat.WhereSql)
                     .WhereIF(sqlObj.WhereString.HasValue(),sqlObj.WhereString)
                     .AddParameters(sqlObj.Parameters).Where(conditionalModels));
                 var groupQuery = (from l in list
@@ -340,9 +353,17 @@ namespace SqlSugar
                                  }).ToList();
                 foreach (var item in groupQuery)
                 {
-                  
-                   // var setValue = navList.FirstOrDefault(x => navPkColumn.PropertyInfo.GetValue(x).ObjToString() == navColumn.PropertyInfo.GetValue(item).ObjToString());
-                    navObjectNamePropety.SetValue(item.l, item.n);
+
+                    // var setValue = navList.FirstOrDefault(x => navPkColumn.PropertyInfo.GetValue(x).ObjToString() == navColumn.PropertyInfo.GetValue(item).ObjToString());
+
+                    if (navObjectNamePropety.GetValue(item.l) == null)
+                    {
+                        navObjectNamePropety.SetValue(item.l, item.n);
+                    }
+                    else
+                    {
+                        //The reserved
+                    }
 
                 }
             }
@@ -352,7 +373,9 @@ namespace SqlSugar
         {
             var navEntity = navObjectNameColumnInfo.PropertyInfo.PropertyType.GetGenericArguments()[0];
             var navEntityInfo = this.Context.EntityMaintenance.GetEntityInfo(navEntity);
-            this.Context.InitMappingInfo(navEntityInfo.Type);
+            var childDb = this.Context;
+            childDb = GetCrossDatabase(childDb, navEntityInfo.Type);
+            childDb.InitMappingInfo(navEntityInfo.Type);
             var navColumn = navEntityInfo.Columns.FirstOrDefault(it => it.PropertyName == navObjectNameColumnInfo.Navigat.Name);
             Check.ExceptionEasy(navColumn == null, $"{navEntityInfo.EntityName} not found {navObjectNameColumnInfo.Navigat.Name} ", $"实体 {navEntityInfo.EntityName} 未找到导航配置列 {navObjectNameColumnInfo.Navigat.Name} ");
             //var navType = navObjectNamePropety.PropertyType;
@@ -361,6 +384,7 @@ namespace SqlSugar
             if (navObjectNameColumnInfo.Navigat.Name2.HasValue()) 
             {
                 listItemPkColumn = listItemEntity.Columns.Where(it => it.PropertyName== navObjectNameColumnInfo.Navigat.Name2).FirstOrDefault();
+                Check.ExceptionEasy(listItemPkColumn == null, $"{navObjectNameColumnInfo.PropertyName} Navigate is error ", $"{navObjectNameColumnInfo.PropertyName}导航配置错误,可能顺序反了。");
             }
             var ids = list.Select(it => it.GetType().GetProperty(listItemPkColumn.PropertyName).GetValue(it)).Select(it => it == null ? "null" : it).Distinct().ToList();
             List<IConditionalModel> conditionalModels = new List<IConditionalModel>();
@@ -375,7 +399,7 @@ namespace SqlSugar
       
             if (list.Any() && navObjectNamePropety.GetValue(list.First()) == null)
             {
-                var navList = selector(this.Context.Queryable<object>(sqlObj.TableShortName).AS(navEntityInfo.DbTableName).Filter(navEntityInfo.Type).AddParameters(sqlObj.Parameters).Where(conditionalModels).WhereIF(sqlObj.WhereString.HasValue(), sqlObj.WhereString).Select(sqlObj.SelectString).OrderByIF(sqlObj.OrderByString.HasValue(), sqlObj.OrderByString));
+                var navList = selector(childDb.Queryable<object>(sqlObj.TableShortName).AS(navEntityInfo.DbTableName).Filter(navEntityInfo.Type).AddParameters(sqlObj.Parameters).Where(conditionalModels).WhereIF(sqlObj.WhereString.HasValue(), sqlObj.WhereString).Select(sqlObj.SelectString).OrderByIF(sqlObj.OrderByString.HasValue(), sqlObj.OrderByString));
                 if (navList.HasValue())
                 {
                     //var setValue = navList
@@ -509,6 +533,7 @@ namespace SqlSugar
             SqlInfo result = new SqlInfo();
             result.Parameters = new List<SugarParameter>();
             var isList = false;
+            int parameterIndex = 0;
             foreach (var item in _ListCallFunc)
             {
                 var method = item as MethodCallExpression;
@@ -519,17 +544,22 @@ namespace SqlSugar
                     {
                         //var x=method.Arguments[1];
                         var conditionals = ExpressionTool.GetExpressionValue(method.Arguments[1])  as List<IConditionalModel>;
-                        var whereObj = queryable.QueryBuilder.Builder.ConditionalModelToSql(conditionals);
-                        where.Add(whereObj.Key);
-                        if(whereObj.Value!=null)
-                          result.Parameters.AddRange(whereObj.Value);
+                        if (conditionals.Count > 0)
+                        {
+                            var whereObj = queryable.QueryBuilder.Builder.ConditionalModelToSql(conditionals);
+                            where.Add(whereObj.Key);
+                            if(whereObj.Value!=null)
+                                result.Parameters.AddRange(whereObj.Value);
+                        }
                     }
                     else
                     {
+                        queryable.QueryBuilder.LambdaExpressions.ParameterIndex = parameterIndex;
                         CheckHasRootShortName(method.Arguments[0], method.Arguments[1]);
                         var exp = method.Arguments[1];
                         where.Add(" " + queryable.QueryBuilder.GetExpressionValue(exp, ResolveExpressType.WhereSingle).GetString());
                         SetTableShortName(result, queryable);
+                        parameterIndex=queryable.QueryBuilder.LambdaExpressions.ParameterIndex ;
                     }
                 }
                 else if (method.Method.Name == "WhereIF")
@@ -537,10 +567,12 @@ namespace SqlSugar
                     var isOk = LambdaExpression.Lambda(method.Arguments[1]).Compile().DynamicInvoke();
                     if (isOk.ObjToBool())
                     {
+                        queryable.QueryBuilder.LambdaExpressions.ParameterIndex = parameterIndex;
                         var exp = method.Arguments[2];
                         CheckHasRootShortName(method.Arguments[1], method.Arguments[2]);
                         where.Add(" " + queryable.QueryBuilder.GetExpressionValue(exp, ResolveExpressType.WhereSingle).GetString());
                         SetTableShortName(result, queryable);
+                        parameterIndex = queryable.QueryBuilder.LambdaExpressions.ParameterIndex;
                     }
                 }
                 else if (method.Method.Name == "OrderBy")
@@ -665,6 +697,36 @@ namespace SqlSugar
             if (queryable.QueryBuilder.TableShortName.HasValue()&& result.TableShortName.IsNullOrEmpty())
             {
                 result.TableShortName = queryable.QueryBuilder.TableShortName;
+            }
+        }
+
+
+        private SqlSugarProvider GetCrossDatabase(SqlSugarProvider db, Type type)
+        {
+            if (IsCrossQueryWithAttr == false && this.CrossQueryItems == null)
+            {
+                return db;
+            }
+            else if (IsCrossQueryWithAttr)
+            {
+                var tenant = type.GetCustomAttribute<TenantAttribute>();
+                if (tenant != null)
+                {
+                    return db.Root.GetConnection(tenant.configId);
+                }
+                else
+                {
+                    return db;
+                }
+            } 
+            else if (this.CrossQueryItems!=null&& this.CrossQueryItems.Count>0&&this.CrossQueryItems.ContainsKey(type.FullName)) 
+            {
+                var result= db.Root.GetConnection(this.CrossQueryItems[type.FullName]);
+                return result;
+            }
+            else
+            {
+                return db;
             }
         }
 

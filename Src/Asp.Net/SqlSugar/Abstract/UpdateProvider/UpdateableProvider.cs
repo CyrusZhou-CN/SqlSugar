@@ -18,6 +18,10 @@ namespace SqlSugar
         public UpdateBuilder UpdateBuilder { get; set; }
         public IAdo Ado { get { return Context.Ado; } }
         public T[] UpdateObjs { get; set; }
+        /// <summary>
+        /// true : by expression  update
+        /// false: by object update
+        /// </summary>
         public bool UpdateParameterIsNull { get; set; }
         public bool IsMappingTable { get { return this.Context.MappingTables != null && this.Context.MappingTables.Any(); } }
         public bool IsMappingColumns { get { return this.Context.MappingColumns != null && this.Context.MappingColumns.Any(); } }
@@ -62,6 +66,7 @@ namespace SqlSugar
 
         public virtual int ExecuteCommandWithOptLock(bool IsVersionValidation=false)
         {
+            Check.ExceptionEasy(this.UpdateBuilder.IsListUpdate==true, " OptLock can only be used on a single object, and the argument cannot be List", "乐观锁只能用于单个对象,参数不能是List,如果是一对多操作请更新主表统一用主表验证");
             var updateData = UpdateObjs.FirstOrDefault();
             if (updateData == null) return 0;
             var name=_ExecuteCommandWithOptLock(updateData);
@@ -92,6 +97,7 @@ namespace SqlSugar
 
         public virtual async Task<int> ExecuteCommandWithOptLockAsync(bool IsVersionValidation = false)
         {
+            Check.ExceptionEasy(this.UpdateBuilder.IsListUpdate == true, " OptLock can only be used on a single object, and the argument cannot be List", "乐观锁只能用于单个对象,参数不能是List,如果是一对多操作请更新主表统一用主表验证");
             var updateData = UpdateObjs.FirstOrDefault();
             if (updateData == null) return 0;
             var name=_ExecuteCommandWithOptLock(updateData);
@@ -178,6 +184,10 @@ namespace SqlSugar
             this.IsVersionValidation = true;
             return this;
         }
+        public IUpdateable<T> AsType(Type tableNameType) 
+        {
+            return AS(this.Context.EntityMaintenance.GetEntityInfo(tableNameType).DbTableName);
+        }
         public IUpdateable<T> AS(string tableName)
         {
             if (tableName == null) return this;
@@ -191,6 +201,14 @@ namespace SqlSugar
             }
             this.Context.MappingTables.Add(entityName, tableName);
             return this; ;
+        }
+        public IUpdateable<T> EnableDiffLogEventIF(bool isEnableDiffLog, object businessData = null) 
+        {
+            if (isEnableDiffLog) 
+            {
+                return EnableDiffLogEvent(businessData);
+            }
+            return this;
         }
         public IUpdateable<T> EnableDiffLogEvent(object businessData = null)
         {
@@ -285,7 +303,15 @@ namespace SqlSugar
             foreach (var item in whereColumns)
             {
                 _WhereColumn(item);
-                this.WhereColumnList.Add(item);
+                var columnInfo=this.EntityInfo.Columns.FirstOrDefault(it => it.PropertyName.EqualCase(item));
+                if (columnInfo != null)
+                {
+                    this.WhereColumnList.Add(columnInfo.DbColumnName);
+                }
+                else
+                {
+                    this.WhereColumnList.Add(item);
+                }
             }
             return this;
         }
@@ -329,8 +355,11 @@ namespace SqlSugar
         }
         public IUpdateable<T> UpdateColumns(string[] columns)
         {
-            ThrowUpdateByExpression();
-            this.UpdateBuilder.DbColumnInfoList = this.UpdateBuilder.DbColumnInfoList.Where(it => GetPrimaryKeys().Select(iit => iit.ToLower()).Contains(it.DbColumnName.ToLower()) || columns.Contains(it.PropertyName, StringComparer.OrdinalIgnoreCase)).ToList();
+            if (columns.HasValue())
+            {
+                ThrowUpdateByExpression();
+                this.UpdateBuilder.DbColumnInfoList = this.UpdateBuilder.DbColumnInfoList.Where(it => GetPrimaryKeys().Select(iit => iit.ToLower()).Contains(it.DbColumnName.ToLower()) || columns.Contains(it.PropertyName, StringComparer.OrdinalIgnoreCase)).ToList();
+            }
             return this;
         }
         public IUpdateable<T> UpdateColumnsIF(bool isUpdateColumns, Expression<Func<T, object>> columns)
@@ -379,6 +408,23 @@ namespace SqlSugar
             AppendSets();
             return this;
         }
+        public IUpdateable<T> SetColumnsIF(bool isUpdateColumns, Expression<Func<T, object>> filedNameExpression, object fieldValue) 
+        {
+            if (isUpdateColumns)
+            {
+                return SetColumns(filedNameExpression, fieldValue);
+            }
+            else
+            {
+                return this;
+            }
+        }
+        public IUpdateable<T> SetColumns(Expression<Func<T, object>> filedNameExpression, object fieldValue) 
+        {
+            var name= UpdateBuilder.GetExpressionValue(filedNameExpression,ResolveExpressType.FieldSingle).GetString();
+            name = UpdateBuilder.Builder.GetNoTranslationColumnName(name);
+            return SetColumns(name, fieldValue);
+        }
         public IUpdateable<T> SetColumns(Expression<Func<T, T>> columns)
         {
             ThrowUpdateByObject();
@@ -403,6 +449,50 @@ namespace SqlSugar
             AppendSets();
             return this;
         }
+
+
+        public IUpdateable<T> SetColumns(Expression<Func<T, T>> columns, bool appendColumnsByDataFilter) 
+        {
+            ThrowUpdateByObject();
+            var expResult = UpdateBuilder.GetExpressionValue(columns, ResolveExpressType.Update);
+            var resultArray = expResult.GetResultArray();
+            Check.ArgumentNullException(resultArray, "UpdateColumns Parameter error, UpdateColumns(it=>new T{ it.id=1}) is valid, UpdateColumns(it=>T) is error");
+            if (resultArray.HasValue())
+            {
+                foreach (var item in resultArray)
+                {
+                    string key = SqlBuilder.GetNoTranslationColumnName(item);
+                    var value = item;
+                    if (value.Contains("= \"SYSDATE\""))
+                    {
+                        value = value.Replace("= \"SYSDATE\"", "= SYSDATE");
+                    }
+                    UpdateBuilder.SetValues.Add(new KeyValuePair<string, string>(SqlBuilder.GetTranslationColumnName(key), value));
+                }
+            }
+            if (appendColumnsByDataFilter)
+            {
+                var data = ((UpdateableProvider<T>)this.Context.Updateable(new T() { })).UpdateObjs.First();
+                foreach (var item in this.EntityInfo.Columns.Where(it => !it.IsPrimarykey && !it.IsIgnore && !it.IsOnlyIgnoreUpdate))
+                {
+                    var value = item.PropertyInfo.GetValue(data);
+                    if (value != null && !value.Equals(""))
+                    {
+                        if (!value.Equals(UtilMethods.GetDefaultValue(item.UnderType))) 
+                        {
+                            var pName = this.SqlBuilder.SqlParameterKeyWord + item.PropertyName + 1000;
+                            var p = new SugarParameter(pName, value);
+                            this.UpdateBuilder.Parameters.Add(p);
+                            UpdateBuilder.SetValues.Add(new KeyValuePair<string, string>(SqlBuilder.GetTranslationColumnName(item.DbColumnName), SqlBuilder.GetTranslationColumnName(item.DbColumnName)+"="+pName));
+                        }
+                    }
+                }
+            }
+            this.UpdateBuilder.DbColumnInfoList = UpdateBuilder.DbColumnInfoList.Where(it => (UpdateParameterIsNull == false && IsPrimaryKey(it)) || UpdateBuilder.SetValues.Any(v => SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.DbColumnName, StringComparison.CurrentCultureIgnoreCase) || SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.PropertyName, StringComparison.CurrentCultureIgnoreCase)) || it.IsPrimarykey == true).ToList();
+            CheckTranscodeing(false);
+            AppendSets();
+            return this;
+        }
         public IUpdateable<T> SetColumns(Expression<Func<T, bool>> columns)
         {
             ThrowUpdateByObject();
@@ -415,6 +505,10 @@ namespace SqlSugar
             if (expResult.EndsWith(" IS NULL  ")) 
             {
                 expResult = Regex.Split(expResult, " IS NULL  ")[0]+" = NULL ";
+            }
+            else if (!expResult.Contains("=")&&expResult.Contains("IS  NULL  "))
+            {
+                expResult = Regex.Split(expResult, "IS  NULL  ")[0] + " = NULL ";
             }
             string key = SqlBuilder.GetNoTranslationColumnName(expResult);
 

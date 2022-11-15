@@ -84,6 +84,11 @@ namespace SqlSugar
             return default(string);
         }
 
+        public string SelectStringJoin(Func<T, string> expression,string separator)
+        {
+            return default(string);
+        }
+
         public TResult Max<TResult>(Func<T, TResult> expression) where TResult : struct
         {
             return default(TResult);
@@ -114,6 +119,11 @@ namespace SqlSugar
         public string Sum(Func<T, string> expression)
         {
             return default(string);
+        }
+
+        public int DistinctCount(Func<T, object> expression) 
+        {
+            return default(int);
         }
         public TResult Sum<TResult>(Func<T, TResult> expression) where TResult : struct
         {

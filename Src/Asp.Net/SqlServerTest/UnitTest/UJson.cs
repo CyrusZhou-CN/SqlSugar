@@ -1,4 +1,6 @@
-﻿using System;
+﻿using SqlSugar;
+using SqlSugarSelect;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,6 +18,7 @@ namespace OrmTest
             Db.DbMaintenance.TruncateTable<UnitJsonTest>();
             Db.Insertable(new UnitJsonTest() { Order = new Order { Id = 1, Name = "order1" } }).ExecuteCommand();
             var list = Db.Queryable<UnitJsonTest>().ToList();
+            var json = Db.Queryable<UnitJsonTest>().Select(it => SqlFunc.JsonField(it.Order, "Name")).ToList();
             UValidate.Check("order1", list.First().Order.Name, "Json");
             Db.Updateable(new UnitJsonTest() { Id = 1, Order = new Order { Id = 2, Name = "order2" } }).ExecuteCommand();
             list = Db.Queryable<UnitJsonTest>().ToList();
@@ -39,7 +42,7 @@ namespace OrmTest
             db.CodeFirst.SetStringDefaultLength(200).InitTables(typeof(SqlSugarSelect.TestModel2));
 
             #region 加入数据
-            var isadd = !db.Queryable<TestModel1>().Any();
+            var isadd = !db.Queryable<SqlSugarSelect.TestModel1>().Any();
             if (isadd)
             {
                 db.Insertable(new SqlSugarSelect.TestModel1
@@ -74,6 +77,18 @@ namespace OrmTest
             };
             var list11 = jsonDb.Queryable<UNITJSONTESTADSGA1>().Select(it => new { it }).ToList();
             if (list11.FirstOrDefault().it.os == null) 
+            {
+                throw new Exception("unit test");
+            }
+
+            var list12 = jsonDb.Queryable<UNITJSONTESTADSGA1>().Select(it =>  it ).ToList();
+            if (!list12.Any(z=>z.os.Count>0))
+            {
+                throw new Exception("unit test");
+            }
+
+            var list13=db.Queryable<object>().AS("UnitTestModel1").Select<ViewTestModel1>().ToList();
+            if (list13.First().Ids.Count() == 0) 
             {
                 throw new Exception("unit test");
             }

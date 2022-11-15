@@ -37,6 +37,7 @@ namespace OrmTest
             var getOrderBy = db.Queryable<Order>().OrderBy(it => it.Name, OrderByType.Desc).ToList();
             var getOrderBy2 = db.Queryable<Order>().OrderBy(it => it.Id).OrderBy(it => it.Name, OrderByType.Desc).ToList();
             var getOrderBy3 = db.Queryable<Order>().OrderBy(it => new { it.Name, it.Id }).ToList();
+            var getOrderBy4 = db.Queryable<Order>().OrderBy(it => new { it.CreateTime.Day,it.CreateTime.Year}).ToList();
             var getRandom = db.Queryable<Order>().OrderBy(it => SqlFunc.GetRandom()).First();
             var getByPrimaryKey = db.Queryable<Order>().InSingle(2);
             var getSingleOrDefault = db.Queryable<Order>().Where(it => it.Id == 1).Single();
@@ -177,10 +178,39 @@ namespace OrmTest
               .Where(it => -it.Id == 1)
               .Where(it => DateTime.Now.AddDays(-num) == DateTime.Now.Date)
               .ToList();
+
+           var subQueryable= db.Queryable<Order>().Select(z=>new { id=z.Id});
+           var list= db.Queryable(subQueryable)
+                .LeftJoin<OrderItem>((x, y) => x.id == y.OrderId)
+                .ToList();
+
+            var test47 = db.Queryable<Order>().Select(it => new
+            {
+                names = SqlFunc.Subqueryable<Order>().Where(z=>z.Id==it.Id).SelectStringJoin(z => z.Name, ","),
+                 disCount = SqlFunc.Subqueryable<Order>().DistinctCount(z=>z.Id)
+            })
+           .ToList();
+
+            var test48 = db.Queryable<Order>().Select(it => new
+            {
+                count = SqlFunc.RowCount(),
+                index = SqlFunc.RowNumber(it.Name),
+                index2 = SqlFunc.RowNumber(it.Id,it.Name)
+            })
+           .ToList();
+            var test49 = db.Queryable<Order>().Select(it => new
+            {
+                index = SqlFunc.RowNumber($"{it.Name} asc,{it.Id} desc", $"{it.Id},{it.Name}")
+            })
+            .ToList();
             var dr3 = new Dictionary<string, object>();
             dr3.Add("Id", 0);
             dr3.Add("Name", null);
             db.Queryable<Order>().WhereColumns(dr3, true).ToList();
+            var ids = new string[] { "a", "c" };
+            var NIds = db.Queryable<Order>().Where(it => ids.Contains(it.Name, true)).ToList();
+            var Ids = db.Queryable<Order>().Where(it => ids.Contains(it.Name, false)).ToList();
+            var Ids2 = db.Queryable<Order>().Where(it => ids.Contains(it.Name)).ToList();
             Console.WriteLine("#### Examples End ####");
         }
 
@@ -320,6 +350,14 @@ namespace OrmTest
                 date = it.CreateTime.Date,
                 datetime = DateTime.Now.Date
             }).ToList();
+            var list3 = db.Queryable<Order>().InnerJoin<Order>((it,o)=>it.Id==o.Id).Where(it => it.CreateTime.Date == it.CreateTime).Select(it => new
+            {
+                num = SqlFunc.IF(SqlFunc.Subqueryable<Order>().Count() > 0)
+                 .Return(1)
+                 .ElseIF(SqlFunc.Subqueryable<Order>().Count() > 0)
+                 .Return(it.Id)
+                 .End(1)
+            }).ToList();
             Console.WriteLine("#### SqlFunc  End ####");
         }
 
@@ -356,6 +394,7 @@ namespace OrmTest
             var allchilds = db.Queryable<Tree>().ToChildList(it => it.ParentId, 0);
             var allchilds_2 = db.Queryable<Tree2>().ToChildList(it => it.ParentId, 0);
             var allchilds1 = db.Queryable<Tree>().ToChildList(it => it.ParentId, 1);
+            var allchilds11 = db.Queryable<Tree>().Select<Tree2>().ToChildList(it => it.ParentId, 1);
             var allchilds2 = db.Queryable<Tree>().ToChildList(it => it.ParentId, 2);
             var allchilds2_2 = db.Queryable<Tree2>().ToChildList(it => it.ParentId, 2);
             var parentList = db.Queryable<Tree>().ToParentList(it => it.ParentId, 22);
@@ -501,6 +540,18 @@ namespace OrmTest
                 .Where(m => m.Id == SqlFunc.Subqueryable<Order>()
                 .Where(z => z.Id == m.Id).GroupBy(z => z.Id).Select(z => z.Id))
                 .ToList();
+            var q2 = db.Queryable<Order>().Select(z => new { id = z.Id }).ToList();
+
+
+            db.Queryable<Order>()
+                .Select(it => new { id = it.Id })
+                .MergeTable()//合并成一个表 和 OrderItem 进行JOIN
+                .LeftJoin<OrderItem>((x, y) => x.id == y.ItemId)
+                .Select((x, y) => new {xid=x.id,yid=y.ItemId})
+                .MergeTable()//合并成一个表 和 OrderItem 进行JOIN
+                .LeftJoin<OrderItem>((x,y)=>x.yid==y.ItemId)// 最后一个表不是匿名对象就行
+                .ToList();
+
             Console.WriteLine("#### Join Table End ####");
         }
 
@@ -631,7 +682,7 @@ namespace OrmTest
             var res = db.Queryable<Person>().Select(it => new Person()
             {
                 Id = it.Id.SelectAll(),
-                SexName = it.SexId.GetConfigValue<DataDictionary>("sex"),
+                SexName = "(" + it.SexId.GetConfigValue<DataDictionary>("sex") + ")",
                 ProviceName = it.SexId.GetConfigValue<DataDictionary>("province"),
                 CityName = it.SexId.GetConfigValue<DataDictionary>("city"),
             }).ToList();//也支持支持写在Where或者Orderby

@@ -306,7 +306,14 @@ namespace SqlSugar
                 var valueType = value.GetType();
                 if (valueType.IsIn(UtilConstants.FloatType, UtilConstants.DecType, UtilConstants.DobType))
                 {
-                    value = Convert.ToUInt32(value);
+                    if (Convert.ToDecimal(value) < 0)
+                    {
+                        value = Convert.ToInt32(value);
+                    }
+                    else
+                    {
+                        value = Convert.ToUInt32(value);
+                    }
                 }
                 else if (valueType == UtilConstants.StringType)
                 {
@@ -325,7 +332,14 @@ namespace SqlSugar
                 var valueType = value.GetType();
                 if (valueType.IsIn(UtilConstants.FloatType, UtilConstants.DecType, UtilConstants.DobType))
                 {
-                    value = Convert.ToUInt32(value);
+                    if (Convert.ToDecimal(value) < 0)
+                    {
+                        value = Convert.ToInt32(value);
+                    }
+                    else
+                    {
+                        value = Convert.ToUInt32(value);
+                    }
                 }
                 else if (valueType == UtilConstants.StringType)
                 {

@@ -19,6 +19,10 @@ namespace SqlSugar
                     DbColumnInfo dbColumnInfo = this.EntityColumnToDbColumn(entityInfo, tableName, item);
                     columns.Add(dbColumnInfo);
                 }
+                if (entityInfo.IsCreateTableFiledSort)
+                {
+                    columns = columns.OrderBy(c => c.CreateTableFieldSort).ToList();
+                }
             }
             this.Context.DbMaintenance.CreateTable(tableName, columns,true);
         }
@@ -35,7 +39,8 @@ namespace SqlSugar
                 IsNullable = item.IsNullable,
                 DefaultValue = item.DefaultValue,
                 ColumnDescription = item.ColumnDescription,
-                Length = item.Length
+                Length = item.Length,
+                CreateTableFieldSort = item.CreateTableFieldSort
             };
             GetDbType(item, propertyType, result);
             if (result.DataType.Equals("varchar", StringComparison.CurrentCultureIgnoreCase) && result.Length == 0)

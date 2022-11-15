@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SqlSugar
 {
@@ -221,13 +222,20 @@ namespace SqlSugar
                 var dtColumInfo = dtColums.First(it => it.ColumnName.EqualCase(columnInfo.DbColumnName));
                 var type = UtilMethods.GetUnderType(dtColumInfo.DataType);
                 var value= type==UtilConstants.StringType?(object)"": Activator.CreateInstance(type);
+                if (this.Context.CurrentConnectionConfig.DbType == DbType.Oracle)
+                {
+                    value = columnInfo.DefaultValue;
+                    if (value.Equals("")) 
+                    {
+                        value = "empty";
+                    }
+                }
                 var dt = new Dictionary<string, object>();
                 dt.Add(columnInfo.DbColumnName, value);
                 this.Context.Updateable(dt)
                              .AS(tableName)
                              .Where($"{columnInfo.DbColumnName} is null ").ExecuteCommand();
-                if(this.Context.CurrentConnectionConfig.DbType!=DbType.Oracle)
-                   columnInfo.IsNullable = false;
+                columnInfo.IsNullable = false;
                 UpdateColumn(tableName, columnInfo);
             }
             return true;
@@ -245,8 +253,50 @@ namespace SqlSugar
             tableName = this.SqlBuilder.GetTranslationTableName(tableName);
             this.Context.Ado.ExecuteCommand(string.Format(this.DropTableSql, tableName));
             return true;
+        }       
+        public virtual bool DropTable(string[] tableName)
+        {
+            foreach (var item in tableName)
+            {
+                DropTable(item);
+            }
+            return true;
         }
-
+        public virtual bool DropTable(Type[] tableEnittyTypes)
+        {
+            foreach (var item in tableEnittyTypes)
+            {
+                var tableName = this.Context.EntityMaintenance.GetTableName(item);
+                DropTable(tableName);
+            }
+            return true;
+        }
+        public virtual bool DropTable<T>() 
+        {
+           var tableName= this.Context.EntityMaintenance.GetTableName<T>();
+            return DropTable(tableName);
+        }
+        public virtual bool DropTable<T,T2>()
+        {
+            DropTable<T>();
+            DropTable<T2>();
+            return true;
+        }
+        public virtual bool DropTable<T, T2,T3>()
+        {
+            DropTable<T>();
+            DropTable<T2>();
+            DropTable<T3>();
+            return true;
+        }
+        public virtual bool DropTable<T, T2, T3,T4>()
+        {
+            DropTable<T>();
+            DropTable<T2>();
+            DropTable<T3>();
+            DropTable<T4>();
+            return true;
+        }
         public virtual bool TruncateTable<T>()
         {
             this.Context.InitMappingInfo<T>();
@@ -300,6 +350,23 @@ namespace SqlSugar
         {
             tableName = this.SqlBuilder.GetTranslationTableName(tableName);
             this.Context.Ado.ExecuteCommand(string.Format(this.TruncateTableSql, tableName));
+            return true;
+        }
+        public bool TruncateTable(params string[] tableNames) 
+        {
+            foreach (var item in tableNames)
+            {
+                TruncateTable(item);
+            }
+            return true;
+        }
+        public bool TruncateTable(params Type[] tableEnittyTypes)
+        {
+            foreach (var item in tableEnittyTypes)
+            {
+                var name = this.Context.EntityMaintenance.GetTableName(item);
+                TruncateTable(name);
+            }
             return true;
         }
         public virtual bool BackupDataBase(string databaseName, string fullFileName)
@@ -371,6 +438,10 @@ namespace SqlSugar
             {
                 defaultValue = "";
             }
+            if (defaultValue.IsDate() && !AddDefaultValueSql.Contains("'{2}'")) 
+            {
+                defaultValue = "'" + defaultValue + "'";
+            }
             string sql = string.Format(AddDefaultValueSql, tableName, columnName,defaultValue);
             this.Context.Ado.ExecuteCommand(sql);
             return true;
@@ -397,7 +468,19 @@ namespace SqlSugar
         }
         public virtual bool CreateIndex(string tableName, string[] columnNames, string IndexName, bool isUnique = false) 
         {
-            string sql = string.Format("CREATE {3} INDEX {2} ON {0}({1})", tableName, string.Join(",", columnNames), IndexName, isUnique ? "UNIQUE" : "");
+            var include = "";
+            if (IndexName.ToLower().Contains("{include:"))
+            {
+                include = Regex.Match(IndexName, @"\{include\:.+$").Value;
+                IndexName = IndexName.Replace(include, "");
+                if (include == null) 
+                {
+                    throw new Exception("include format error");
+                }
+                include = include.Replace("{include:", "").Replace("}", "");
+                include = $"include({include})";
+            }
+            string sql = string.Format("CREATE {3} INDEX {2} ON {0}({1})"+ include, tableName, string.Join(",", columnNames), IndexName, isUnique ? "UNIQUE" : "");
             this.Context.Ado.ExecuteCommand(sql);
             return true;
         }

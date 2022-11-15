@@ -42,6 +42,11 @@ namespace OrmTest
             var getByWhere2 = db.Queryable<Order>().Where(it => it.Id == DateTime.Now.Year).ToList();
             var getByFuns = db.Queryable<Order>().Where(it => SqlFunc.IsNullOrEmpty(it.Name)).ToList();
             var getByFuns2 = db.Queryable<Order>().GroupBy(it => it.Name).Select(it => SqlFunc.AggregateDistinctCount(it.Price)).ToList();
+            var test47 = db.Queryable<Order>().Select(it => new
+            {
+                names = SqlFunc.Subqueryable<Order>().Where(z => z.Id == it.Id).SelectStringJoin(z => z.Name, ",")
+            })
+            .ToList();
             Console.WriteLine("#### Examples End ####");
         }
 
@@ -135,7 +140,7 @@ namespace OrmTest
             var db = GetInstance();
             //Creater Table
             db.CodeFirst.InitTables(typeof(Tree));
-            db.DbMaintenance.TruncateTable("tree");
+            db.DbMaintenance.TruncateTable("Tree");
             db.Insertable(new Tree() { Id = 1, Name = "root" }).ExecuteCommand();
             db.Insertable(new Tree() { Id = 11, Name = "child1",ParentId=1 }).ExecuteCommand();
             db.Insertable(new Tree() { Id = 12, Name = "child2",ParentId=1 }).ExecuteCommand();
@@ -189,9 +194,9 @@ namespace OrmTest
             Console.WriteLine("#### No Entity Start ####");
             var db = GetInstance();
 
-            var list = db.Queryable<dynamic>().AS("order").Where("id=id", new { id = 1 }).ToList();
+            var list = db.Queryable<dynamic>().AS("`Order`").Where("id=id", new { id = 1 }).ToList();
 
-            var list2 = db.Queryable<dynamic>("o").AS("order").AddJoinInfo("OrderDetail", "i", "o.id=i.OrderId").Where("id=id", new { id = 1 }).Select("o.*").ToList();
+            var list2 = db.Queryable<dynamic>("o").AS("`Order`").AddJoinInfo("OrderDetail", "i", "o.id=i.OrderId").Where("id=id", new { id = 1 }).Select("o.*").ToList();
             Console.WriteLine("#### No Entity End ####");
         }
 

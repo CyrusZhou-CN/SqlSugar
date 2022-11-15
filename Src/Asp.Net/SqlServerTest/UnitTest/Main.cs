@@ -31,6 +31,33 @@ namespace OrmTest
         }
         public static void Init()
         {
+            UnitByteArray.Init();
+            UnitInsertNavOneToOne.Init();
+            CrossDatabase01.Init();
+            CrossDatabase02.Init();
+            CrossDatabase03.Init();
+            UInsertNav0adsf.Init();
+            UExp.Init();
+            USelectSinleDTO.Init();
+            UCustom024.Init();
+            UCustom24.Init();
+            UCustom20.Init();
+            UTran2.Init();
+            UnitUpdateSubQuery.Init();
+            UnitManyToManyDeleteNav.Init();
+            UnitTestReturnPkList.Init();
+            UnitCustom12312.Init();
+            UnitEnum22.Init();
+            UCustom025.Init();
+            UnitTestConfigQuery.Init();
+            UnitSub.Init();
+            UnitUpdateNavN3.Init();
+            UnitOneToOne12.Init();
+            UnitInsertNav3.Init();
+            UnitInsertNav2.Init();
+            UnitInsertNav.Init();
+            UnitInsertNav.Init();
+            UnitSelectN.Init();
             UnitOneToOneN2.Init();
             UnitManyToManyUpdate.Init();
             UnitManyToMay1231.Init();

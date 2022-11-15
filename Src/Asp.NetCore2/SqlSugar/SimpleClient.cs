@@ -38,7 +38,16 @@ namespace SqlSugar
         public RepositoryType ChangeRepository<RepositoryType>() where RepositoryType : ISugarRepository
         {
             Type type = typeof(RepositoryType);
-            object o = Activator.CreateInstance(type,new string[]{ null});
+            var isAnyParamter = type.GetConstructors().Any(z => z.GetParameters().Any());
+            object o = null;
+            if (isAnyParamter)
+            {
+                o=Activator.CreateInstance(type, new string[] { null });
+            }
+            else 
+            {
+                o = Activator.CreateInstance(type);
+            }
             var result= (RepositoryType)o;
             if (result.Context == null)
             {
@@ -182,6 +191,12 @@ namespace SqlSugar
         {
             return   this.Context.Insertable(insertObjs).ExecuteReturnSnowflakeIdListAsync();
         }
+
+        public virtual T InsertReturnEntity(T insertObj)
+        {
+            return this.Context.Insertable(insertObj).ExecuteReturnEntity();
+        }
+
         public virtual bool InsertRange(T[] insertObjs)
         {
             return this.Context.Insertable(insertObjs).ExecuteCommand() > 0;
@@ -205,6 +220,10 @@ namespace SqlSugar
         public virtual bool Update(Expression<Func<T, T>> columns, Expression<Func<T, bool>> whereExpression)
         {
             return this.Context.Updateable<T>().SetColumns(columns).Where(whereExpression).ExecuteCommand() > 0;
+        }
+        public virtual bool UpdateSetColumnsTrue(Expression<Func<T, T>> columns, Expression<Func<T, bool>> whereExpression)
+        {
+            return this.Context.Updateable<T>().SetColumns(columns,true).Where(whereExpression).ExecuteCommand() > 0;
         }
         public virtual bool Delete(T deleteObj)
         {
@@ -308,6 +327,10 @@ namespace SqlSugar
         {
             return this.Context.Insertable(insertObj).ExecuteReturnBigIdentityAsync();
         }
+        public virtual async Task<T> InsertReturnEntityAsync(T insertObj)
+        {
+            return await this.Context.Insertable(insertObj).ExecuteReturnEntityAsync();
+        }
         public virtual async Task<bool> InsertRangeAsync(T[] insertObjs)
         {
             return await this.Context.Insertable(insertObjs).ExecuteCommandAsync() > 0;
@@ -331,6 +354,10 @@ namespace SqlSugar
         public virtual async Task<bool> UpdateAsync(Expression<Func<T, T>> columns, Expression<Func<T, bool>> whereExpression)
         {
             return await this.Context.Updateable<T>().SetColumns(columns).Where(whereExpression).ExecuteCommandAsync() > 0;
+        }
+        public virtual async Task<bool> UpdateSetColumnsTrueAsync(Expression<Func<T, T>> columns, Expression<Func<T, bool>> whereExpression)
+        {
+            return await this.Context.Updateable<T>().SetColumns(columns,true).Where(whereExpression).ExecuteCommandAsync() > 0;
         }
         public virtual async Task<bool> DeleteAsync(T deleteObj)
         {

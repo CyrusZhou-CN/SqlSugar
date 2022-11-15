@@ -26,11 +26,11 @@ namespace SqlSugar
                                 col_description(pclass.oid, pcolumn.ordinal_position) as ColumnDescription,
                                 case when pkey.colname = pcolumn.column_name
                                 then true else false end as IsPrimaryKey,
-                                case when pcolumn.column_default like 'NEXTVAL%'
+                                case when UPPER(pcolumn.column_default) like 'NEXTVAL%'
                                 then true else false end as IsIdentity,
-                                case when pcolumn.is_nullable = 'YES'
+                                case when UPPER(pcolumn.is_nullable) = 'YES'
                                 then true else false end as IsNullable
-                                 from (select * from sys_tables where tablename = UPPER('{0}') and schemaname='PUBLIC') ptables inner join sys_class pclass
+                                 from (select * from sys_tables where  UPPER(tablename) = UPPER('{0}') and UPPER(schemaname)='PUBLIC') ptables inner join sys_class pclass
                                 on ptables.tablename = pclass.relname inner join (SELECT *
                                 FROM information_schema.columns
                                 ) pcolumn on pcolumn.table_name = ptables.tablename
@@ -237,9 +237,53 @@ namespace SqlSugar
                 return "serial";
             }
         }
-          #endregion
+        #endregion
 
         #region Methods
+        public override bool UpdateColumn(string tableName, DbColumnInfo columnInfo)
+        {
+
+            tableName = this.SqlBuilder.GetTranslationTableName(tableName);
+            var columnName = this.SqlBuilder.GetTranslationColumnName(columnInfo.DbColumnName);
+            string type = GetType(tableName, columnInfo);
+            //this.Context.Ado.ExecuteCommand(sql);
+
+            string sql = @"ALTER TABLE {table} ALTER  {column} TYPE {type};ALTER TABLE {table} ALTER COLUMN {column} {null}";
+
+            var isnull = columnInfo.IsNullable ? " DROP NOT NULL " : " SET NOT NULL ";
+
+            sql = sql.Replace("{table}", tableName)
+                .Replace("{type}", type)
+                .Replace("{column}", columnName)
+                .Replace("{null}", isnull);
+            this.Context.Ado.ExecuteCommand(sql);
+            return true;
+        }
+        protected string GetType(string tableName, DbColumnInfo columnInfo)
+        {
+            string columnName = this.SqlBuilder.GetTranslationColumnName(columnInfo.DbColumnName);
+            tableName = this.SqlBuilder.GetTranslationTableName(tableName);
+            string dataSize = GetSize(columnInfo);
+            string dataType = columnInfo.DataType;
+            //if (!string.IsNullOrEmpty(dataType))
+            //{
+            //    dataType =  dataType;
+            //}
+            return dataType + "" + dataSize;
+        }
+        public override bool IsAnyColumn(string tableName, string columnName, bool isCache = true)
+        {
+            var sql =
+                $"select count(*) from information_schema.columns WHERE table_schema = 'public'  and UPPER(table_name) = '{tableName.ToUpper()}' and UPPER(column_name) = '{columnName.ToUpper()}'";
+            return this.Context.Ado.GetInt(sql) > 0;
+        }
+
+        public override bool IsAnyTable(string tableName, bool isCache = true)
+        {
+            var sql = $"select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE' and UPPER(table_name)='{tableName.ToUpper()}'";
+            return this.Context.Ado.GetInt(sql)>0;
+        }
+
         /// <summary>
         ///by current connection string
         /// </summary>
@@ -247,6 +291,10 @@ namespace SqlSugar
         /// <returns></returns>
         public override bool CreateDatabase(string databaseName, string databaseDirectory = null)
         {
+            if (this.Context.Ado.IsValidConnection())
+            {
+                return true;
+            }
             if (databaseDirectory != null)
             {
                 if (!FileHelper.IsExistDirectory(databaseDirectory))
@@ -256,7 +304,7 @@ namespace SqlSugar
             }
             var oldDatabaseName = this.Context.Ado.Connection.Database;
             var connection = this.Context.CurrentConnectionConfig.ConnectionString;
-            connection = connection.Replace(oldDatabaseName, "SAMPLES");
+            connection = connection.Replace(oldDatabaseName, "test");
             var newDb = new SqlSugarClient(new ConnectionConfig()
             {
                 DbType = this.Context.CurrentConnectionConfig.DbType,

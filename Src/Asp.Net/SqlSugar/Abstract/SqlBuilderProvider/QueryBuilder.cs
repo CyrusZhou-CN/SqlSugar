@@ -33,6 +33,10 @@ namespace SqlSugar
         #endregion
 
         #region Splicing basic
+        public bool IsCrossQueryWithAttr { get;  set; }
+        public Dictionary<string,string> CrossQueryItems { get; set; }
+        public bool IsSelectSingleFiledJson { get; set; }
+        public bool IsSelectSingleFiledArray { get; set; }
         public string TranLock { get; set; }
         public bool IsDisableMasterSlaveSeparation { get;  set; }
         public bool IsEnableMasterSlaveSeparation { get; set; }
@@ -41,6 +45,7 @@ namespace SqlSugar
         public List<string> IgnoreColumns { get; set; }
         public bool IsCount { get; set; }
         public bool IsSqlQuery { get; set; }
+        public bool IsSqlQuerySelect { get; set; }
         public int? Skip { get; set; }
         public int ExternalPageIndex { get; set; }
         public int ExternalPageSize { get; set; }
@@ -263,13 +268,21 @@ namespace SqlSugar
                 resolveExpress.SqlFuncServices = Context.CurrentConnectionConfig.ConfigureExternalServices == null ? null : Context.CurrentConnectionConfig.ConfigureExternalServices.SqlFuncServices;
             };
             resolveExpress.Resolve(expression, resolveType);
-            this.Parameters.AddRange(resolveExpress.Parameters.Select(it => new SugarParameter(it.ParameterName, it.Value,it.DbType)));
+            this.Parameters.AddRange(resolveExpress.Parameters.Select(it => new SugarParameter(it.ParameterName, it.Value, it.DbType) {  Size=it.Size}));
             var result = resolveExpress.Result;
             var isSingleTableHasSubquery = IsSingle() && resolveExpress.SingleTableNameSubqueryShortName.HasValue();
             if (isSingleTableHasSubquery)
             {
-                Check.Exception(!string.IsNullOrEmpty(this.TableShortName) && resolveExpress.SingleTableNameSubqueryShortName != this.TableShortName, "{0} and {1} need same name", resolveExpress.SingleTableNameSubqueryShortName, this.TableShortName);
-                this.TableShortName =resolveExpress.SingleTableNameSubqueryShortName;
+                if (this.TableShortName != null && this.TableShortName.StartsWith("\""))
+                {
+                    Check.Exception(!string.IsNullOrEmpty(this.TableShortName) && resolveExpress.SingleTableNameSubqueryShortName != this.TableShortName.TrimEnd('\"').TrimStart('\"'), "{0} and {1} need same name", resolveExpress.SingleTableNameSubqueryShortName, this.TableShortName);
+                    this.TableShortName = resolveExpress.SingleTableNameSubqueryShortName;
+                }
+                else
+                {
+                    Check.Exception(!string.IsNullOrEmpty(this.TableShortName) && resolveExpress.SingleTableNameSubqueryShortName != this.TableShortName, "{0} and {1} need same name", resolveExpress.SingleTableNameSubqueryShortName, this.TableShortName);
+                    this.TableShortName = resolveExpress.SingleTableNameSubqueryShortName;
+                }
             }
             return result;
         }
@@ -556,6 +569,10 @@ namespace SqlSugar
                 result = "-- No table ";
                 return result;
             }
+            if (this.IsSqlQuerySelect == true) 
+            {
+                return result;
+            }
             if (this.IsSqlQuery&&this.OldSql.HasValue() && (Skip == null && Take == null) && (this.WhereInfos == null || this.WhereInfos.Count == 0))
             {
                 return this.OldSql;
@@ -596,7 +613,19 @@ namespace SqlSugar
         public virtual string GetSelectValueByExpression()
         {
             var expression = this.SelectValue as Expression;
-            var result = GetExpressionValue(expression, this.SelectType).GetResultString();
+            string result = string.Empty;
+            if (this.IgnoreColumns != null && this.IgnoreColumns.Any())
+            {
+                var expArray = GetExpressionValue(expression, this.SelectType).GetResultArray()
+                    .Where(it=>
+                      !this.IgnoreColumns.Any(z=>it.Contains(Builder.GetTranslationColumnName(z)))
+                    ).ToArray();
+                result =string.Join(",", expArray);
+            }
+            else
+            {
+                result= GetExpressionValue(expression, this.SelectType).GetResultString();
+            }
             if (result == null)
             {
                 return "*";

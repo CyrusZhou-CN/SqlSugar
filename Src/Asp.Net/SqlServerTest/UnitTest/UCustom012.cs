@@ -75,6 +75,22 @@ namespace OrmTest
             .Where(it => it.SchoolA.SchoolId == 1)
             .ToList();
 
+            var list211 = db.Queryable<StudentA>()
+              .Where(it =>SqlFunc.Exists(it.SchoolA.School_Name))
+              .ToList();
+
+
+            List<IConditionalModel> conditionalModels = new List<IConditionalModel>();
+            conditionalModels.Add(new ConditionalModel() { FieldName = "SchoolName", FieldValue = "1" });
+            var list212 = db.Queryable<StudentA>()
+              .Where(it => SqlFunc.Exists(it.SchoolA.School_Name, conditionalModels))
+              .ToList();
+
+
+            List<IConditionalModel> conditionalModels2 = new List<IConditionalModel>();
+            var list2121 = db.Queryable<StudentA>()
+              .Where(it => SqlFunc.Exists(it.SchoolA.School_Name, conditionalModels2))
+              .ToList();
             Check.Exception(string.Join(",", list22.Select(it => it.StudentId)) != string.Join(",", list33.Select(it => it.StudentId)), "unit error");
 
 
@@ -261,7 +277,84 @@ namespace OrmTest
             .ThenInclude(z1 => z1.RoomList)
             .Include(z1 => z1.Books).ExecuteCommand();
 
+            db.Queryable<StudentA>()
+                .Where(it => it.Books2.Any(z => z.BookId == 1)).ToList();
 
+
+            var xxx3 = db.Queryable<Tree1>()
+              .Includes(it => it.Child)
+               .OrderByDescending(x => x.Id)
+              .ToList(it => new Tree2
+              {
+                  Id=it.Id,
+                   Child2=it.Child
+              });
+
+            if (xxx3[1].Child2.Count() == 0) 
+            {
+                throw new Exception("unit error");
+            }
+
+            var xxx4 = db.Queryable<Tree1>()
+             .Includes(it => it.Child)
+              .OrderByDescending(x => x.Id)
+             .ToList(it => new ViewTree1
+             {
+                  Count=1
+             });
+
+            if (xxx4[1].Child.Count() == 0)
+            {
+                throw new Exception("unit error");
+            }
+
+            var xxx5 = db.Queryable<Tree1>()
+          .Includes(it => it.Child)
+           .OrderByDescending(x => x.Id)
+          .ToList(it => new  
+          {
+              it.Name,name=it.Child.Select(z=>z.Id).ToList(),
+              name2=it.Child.Select(z => z.Id)
+          });
+            var xxx6 = db.Queryable<Tree1>()
+               .Includes(it => it.Child)
+                .OrderByDescending(x => x.Id)
+               .ToList(it => new DTO 
+               {
+                   name = it.Child.Select(z => z.Id).ToList(),
+                   name2 = it.Child.Select(z => z.Id),
+                   name3 = string.Join(",",it.Child.Select(z => z.Id))
+               });
+
+            var xxx7 = db.Queryable<Tree1>()
+            .Includes(it => it.Child)
+            .OrderByDescending(x => x.Id)
+            .ToList(it => new  
+            {
+            name3 = string.Join(",", it.Child.Select(z => z.Id))
+            });
+
+            if (!db.DbMaintenance.IsAnyTable("order", false)) 
+            {
+                throw new Exception("unit error");
+            }
+            if (db.DbMaintenance.IsAnyTable("ordsafadsfasdfasfasder", false))
+            {
+                throw new Exception("unit error");
+            }
+            if (!db.DbMaintenance.IsAnyTable("Tree1", false))
+            {
+                throw new Exception("unit error");
+            }
+          
+            var list7=db.Queryable<Order>()
+                .Where(z => SqlFunc.Subqueryable<StudentA>().Where(y => y.SchoolA.School_Name == "").NotAny())
+                .ToList();
+            var list8 = db.Queryable<Order>()
+                .Where(z => SqlFunc.Subqueryable<StudentA>()
+                .Where(y => y.SchoolA.School_Name == "")
+                .Select(y=>y.Name)=="a")
+                .ToList();
         }
 
         public class UnitA001
@@ -293,6 +386,17 @@ namespace OrmTest
             public Tree1 Parent { get; set; }
             [Navigate(NavigateType.OneToMany,nameof(Tree1.ParentId))]
             public List<Tree1> Child { get; set; }
+        }
+        public class Tree2
+        {
+       
+            public int Id { get; set; }
+            public string Name2 { get; set; }
+            public int ParentId { get; set; }
+     
+            public Tree1 Parent { get; set; }
+     
+            public List<Tree1> Child2 { get; set; }
         }
         public class ABMapping1
         {
@@ -329,6 +433,9 @@ namespace OrmTest
             public SchoolA SchoolA { get; set; }
             [Navigate(NavigateType.OneToMany, nameof(BookA.studenId))]
             public List<BookA> Books { get; set; }
+
+            [Navigate(NavigateType.OneToMany, nameof(BookA.studenId),nameof(StudentId))]
+            public List<BookA> Books2 { get; set; }
 
         }
         public class SchoolA
@@ -370,5 +477,13 @@ namespace OrmTest
             public int studenId { get; set; }
         }
 
+    }
+
+    internal class DTO
+    {
+        public string name3 { get; set; }
+
+        public List<int> name { get; set; }
+        public IEnumerable<int> name2 { get; set; }
     }
 }

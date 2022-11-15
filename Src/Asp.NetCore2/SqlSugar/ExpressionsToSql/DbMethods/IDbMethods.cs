@@ -33,6 +33,7 @@ namespace SqlSugar
         string StartsWith(MethodCallExpressionModel model);
         string EndsWith(MethodCallExpressionModel model);
         string ToInt32(MethodCallExpressionModel model);
+        string GetStringJoinSelector(string result,string separator);
         string ToInt64(MethodCallExpressionModel model);
         string ToString(MethodCallExpressionModel model);
         string ToVarchar(MethodCallExpressionModel model); 
@@ -75,6 +76,7 @@ namespace SqlSugar
         string Oracle_ToChar(MethodCallExpressionModel model);
         string SqlServer_DateDiff(MethodCallExpressionModel model);
         string Format(MethodCallExpressionModel model);
+        string FormatRowNumber(MethodCallExpressionModel model);
         string Abs(MethodCallExpressionModel model);
         string Round(MethodCallExpressionModel model);
 
@@ -86,6 +88,15 @@ namespace SqlSugar
         string Asc(MethodCallExpressionModel model);
         string Desc(MethodCallExpressionModel model);
         string Stuff(MethodCallExpressionModel model);
+        string RowNumber(MethodCallExpressionModel model);
+        string RowCount(MethodCallExpressionModel model);
+        string Exists(MethodCallExpressionModel model);
         string GetDateString(string dateValue,string format);
+        string GetForXmlPath();
+        string JsonField(MethodCallExpressionModel model);
+        string JsonContainsFieldName(MethodCallExpressionModel model);
+        string JsonArrayLength(MethodCallExpressionModel model);
+        string JsonParse(MethodCallExpressionModel model);
+        string JsonLike(MethodCallExpressionModel model);
     }
 }

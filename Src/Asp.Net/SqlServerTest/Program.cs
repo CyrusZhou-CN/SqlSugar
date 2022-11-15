@@ -11,7 +11,7 @@ namespace OrmTest
         /// <param name="args"></param>
         static void Main(string[] args)
         {
- 
+
             //Demo
             Demo0_SqlSugarClient.Init();
             Demo1_Queryable.Init();
@@ -43,8 +43,9 @@ namespace OrmTest
 
             Console.WriteLine("all successfully.");
             Console.ReadKey();
+
         }
 
- 
+
     }
 }

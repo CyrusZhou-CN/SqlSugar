@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -16,6 +17,61 @@ namespace SqlSugar
 {
     public class UtilMethods
     {
+        public static string ToUnderLine(string str, bool isToUpper = false)
+        {
+            if (isToUpper)
+            {
+                return string.Concat(str.Select((x, i) => i > 0 && char.IsUpper(x) ? "_" + x.ToString() : x.ToString())).ToUpper();
+            }
+            else
+            {
+                return string.Concat(str.Select((x, i) => i > 0 && char.IsUpper(x) ? "_" + x.ToString() : x.ToString())).ToLower();
+            }
+        }
+        internal static bool IsArrayMember(Expression expression, SqlSugarProvider context)
+        {
+            if (expression == null)
+                return false;
+            if (!(expression is LambdaExpression))
+                return false;
+            var lambda = (LambdaExpression)expression;
+            if (!(lambda.Body is MemberExpression))
+                return false;
+            var member = lambda.Body as MemberExpression;
+            if (!(member.Type.IsClass()))
+                return false;
+            if (member.Expression == null)
+                return false;
+            var entity = context.EntityMaintenance.GetEntityInfo(member.Expression.Type);
+            var json = entity.Columns.FirstOrDefault(z => z.IsArray && z.PropertyName == member.Member.Name);
+            return json != null;
+        }
+        internal static bool IsJsonMember(Expression expression, SqlSugarProvider context)
+        {
+            if (expression == null)
+                return false;
+            if (!(expression is LambdaExpression))
+                return false;
+            var lambda = (LambdaExpression)expression;
+            if (!(lambda.Body is MemberExpression))
+                return false;
+            var member = lambda.Body as MemberExpression;
+            if (!(member.Type.IsClass()))
+                return false;
+            if (member.Expression == null)
+                return false;
+            var entity = context.EntityMaintenance.GetEntityInfo(member.Expression.Type);
+            var json = entity.Columns.FirstOrDefault(z => z.IsJson && z.PropertyName == member.Member.Name);
+            return json != null;
+        }
+        public static string GetSeparatorChar()
+        {
+            return Path.Combine("a", "a").Replace("a", "");
+        }
+        public static bool IsParentheses(object name)
+        {
+            return name.ObjToString().Trim().Last() == ')' && name.ObjToString().Trim().First() == '(';
+        }
 
         internal static bool IsDefaultValue(object value)
         {
@@ -87,6 +143,7 @@ namespace SqlSugar
                    OnExecutingChangeSql=it.AopEvents?.OnExecutingChangeSql,
                    OnLogExecuted=it.AopEvents?.OnLogExecuted,
                    OnLogExecuting= it.AopEvents?.OnLogExecuting,
+                   DataExecuted = it.AopEvents?.DataExecuted,
                 },
                 ConfigId = it.ConfigId,
                 ConfigureExternalServices =it.ConfigureExternalServices==null?null:new ConfigureExternalServices() { 
@@ -111,11 +168,14 @@ namespace SqlSugar
                     DefaultCacheDurationInSeconds = it.MoreSettings.DefaultCacheDurationInSeconds,
                     DisableNvarchar = it.MoreSettings.DisableNvarchar,
                     PgSqlIsAutoToLower = it.MoreSettings.PgSqlIsAutoToLower,
+                    PgSqlIsAutoToLowerCodeFirst= it.MoreSettings.PgSqlIsAutoToLowerCodeFirst,
                     IsAutoRemoveDataCache = it.MoreSettings.IsAutoRemoveDataCache,
                     IsWithNoLockQuery = it.MoreSettings.IsWithNoLockQuery,
                     TableEnumIsString = it.MoreSettings.TableEnumIsString,
                     DisableMillisecond = it.MoreSettings.DisableMillisecond,
-                    DbMinDate=it.MoreSettings.DbMinDate
+                    DbMinDate=it.MoreSettings.DbMinDate,
+                    IsNoReadXmlDescription=it.MoreSettings.IsNoReadXmlDescription
+                      
                 },
                 SqlMiddle = it.SqlMiddle == null ? null : new SqlMiddle
                 {
@@ -220,6 +280,15 @@ namespace SqlSugar
             return info;
         }
 
+        internal static object GetConvertValue(object entityValue)
+        {
+            if (entityValue != null && entityValue is DateTime)
+            {
+                entityValue = entityValue.ObjToDate().ToString("yyyy-MM-dd HH:mm:ss.fff");
+            }
+            return entityValue;
+        }
+
         internal static T To<T>(object value)
         {
             return (T)To(value, typeof(T));
@@ -321,6 +390,7 @@ namespace SqlSugar
                 else
                     return Enum.ToObject(type, value);
             }
+            if (value is string && type == typeof(Guid?)) return value.IsNullOrEmpty() ? null : (Guid?)new Guid(value as string);
             if (!type.IsInterface && type.IsGenericType)
             {
                 Type innerType = type.GetGenericArguments()[0];
@@ -411,6 +481,9 @@ namespace SqlSugar
         {
             if (Regex.IsMatch(dbTypeName, @"\(.+\)"))
             {
+                if (Regex.IsMatch(dbTypeName, @"SimpleAggregateFunction"))
+                    dbTypeName = Regex.Match(dbTypeName, @"((?<=,\s)[^Nullable]\w+)|((?<=Nullable\()\w+)").Value;
+                else
                 dbTypeName = Regex.Replace(dbTypeName, @"\(.+\)", "");
             }
             dbTypeName = dbTypeName.Trim();
@@ -520,6 +593,26 @@ namespace SqlSugar
             }
         }
 
+        public static string GetSqlValue(object value)
+        {
+            if (value == null)
+            {
+                return "null";
+            }
+            else if (UtilMethods.IsNumber(value.GetType().Name))
+            {
+                return value.ObjToString();
+            }
+            else if (value is DateTime)
+            {
+                return UtilMethods.GetConvertValue(value) + "";
+            }
+            else
+            {
+                return value.ToSqlValue();
+            }
+        }
+
         public static void DataInoveByExpresson<Type>(Type[] datas, MethodCallExpression callExpresion)
         {
             var methodInfo = callExpresion.Method;
@@ -567,6 +660,103 @@ namespace SqlSugar
             }
             return dic;
         }
+
+        public static Type GetTypeByTypeName(string ctypename)
+        {
+ 
+            if (ctypename.EqualCase(UtilConstants.DecType.Name))
+            {
+                return UtilConstants.DecType;
+            }
+            else if (ctypename.EqualCase(UtilConstants.DobType.Name))
+            {
+                return UtilConstants.DobType;
+            }
+            else if (ctypename.EqualCase(UtilConstants.DateType.Name))
+            {
+                return UtilConstants.DateType;
+            }
+            else if (ctypename.EqualCase(UtilConstants.IntType.Name))
+            {
+                return UtilConstants.IntType;
+            }
+            else if (ctypename.EqualCase(UtilConstants.BoolType.Name))
+            {
+                return UtilConstants.BoolType;
+            }
+            else if (ctypename.EqualCase(UtilConstants.LongType.Name))
+            {
+                return UtilConstants.LongType;
+            }
+            else if (ctypename.EqualCase(UtilConstants.ShortType.Name))
+            {
+                return UtilConstants.ShortType;
+            }
+            else if (ctypename.EqualCase(UtilConstants.DateTimeOffsetType.Name))
+            {
+                return UtilConstants.DateTimeOffsetType;
+            }
+            else if (ctypename.EqualCase(UtilConstants.GuidType.Name))
+            {
+                return UtilConstants.GuidType;
+            }
+            else if (ctypename.EqualCase("int"))
+            {
+                return UtilConstants.IntType;
+            }
+            else if (ctypename.EqualCase("long"))
+            {
+                return UtilConstants.LongType;
+            }
+            else if (ctypename.EqualCase("short"))
+            {
+                return UtilConstants.ShortType;
+            }
+            else if (ctypename.EqualCase("byte"))
+            {
+                return UtilConstants.ByteType;
+            }
+            else if (ctypename.EqualCase("uint"))
+            {
+                return UtilConstants.UIntType;
+            }
+            else if (ctypename.EqualCase("ulong"))
+            {
+                return UtilConstants.ULongType;
+            }
+            else if (ctypename.EqualCase("ushort"))
+            {
+                return UtilConstants.UShortType;
+            }
+            else if (ctypename.EqualCase("uint32"))
+            {
+                return UtilConstants.UIntType;
+            }
+            else if (ctypename.EqualCase("uint64"))
+            {
+                return UtilConstants.ULongType;
+            }
+            else if (ctypename.EqualCase("bool"))
+            {
+                return UtilConstants.BoolType;
+            }
+            else if (ctypename.EqualCase("ToBoolean"))
+            {
+                return UtilConstants.BoolType;
+            }
+            else if (ctypename.EqualCase("uint16"))
+            {
+                return UtilConstants.UShortType;
+            }
+            else if (ctypename.EqualCase(UtilConstants.ByteArrayType.Name))
+            {
+                return UtilConstants.ByteArrayType;
+            }
+            else
+            {
+                return UtilConstants.StringType;
+            }
+        }
         public static object ConvertDataByTypeName(string ctypename,string value)
         {
             var item = new ConditionalModel() {
@@ -588,6 +778,10 @@ namespace SqlSugar
             else if (item.CSharpTypeName.EqualCase(UtilConstants.IntType.Name))
             {
                 return Convert.ToInt32(item.FieldValue);
+            }
+            else if (item.FieldValue!=null&&item.CSharpTypeName.EqualCase(UtilConstants.BoolType.Name))
+            {
+                return Convert.ToBoolean(item.FieldValue.ToLower());
             }
             else if (item.CSharpTypeName.EqualCase(UtilConstants.LongType.Name))
             {
@@ -808,6 +1002,10 @@ namespace SqlSugar
                     else if (UtilMethods.IsNumber(item.Value.GetType().Name))
                     {
                         result = result.Replace(item.ParameterName, item.Value.ObjToString());
+                    }
+                    else if (item.Value is DateTime)
+                    {
+                        result = result.Replace(item.ParameterName, "'"+item.Value.ObjToDate().ToString("yyyy-MM-dd HH:mm:ss.fff")+"'");
                     }
                     else if (item.Value is byte[])
                     {

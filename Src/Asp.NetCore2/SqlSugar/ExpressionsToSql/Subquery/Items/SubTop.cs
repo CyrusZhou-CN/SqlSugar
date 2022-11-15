@@ -65,6 +65,10 @@ namespace SqlSugar
             {
                 return "limit 1";
             }
+            else if (this.Context.GetLimit()!=null)
+            {
+                return this.Context.GetLimit();
+            }
             else
             {
                 return "limit 0,1";

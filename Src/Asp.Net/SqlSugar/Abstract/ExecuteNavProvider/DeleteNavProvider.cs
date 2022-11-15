@@ -22,6 +22,7 @@ namespace SqlSugar
         public DeleteNavProvider<Root, TChild> ThenInclude< TChild>(Expression<Func<T, TChild>> expression)
             where TChild : class, new()
         {
+            this._Context.InitMappingInfo<TChild>();
             InitParentList();
             Expression newExp = GetMamber(expression);
             var name = ExpressionTool.GetMemberName(expression);
@@ -48,6 +49,7 @@ namespace SqlSugar
         public DeleteNavProvider<Root, TChild> ThenInclude<TChild>(Expression<Func<T, List<TChild>>> expression)
          where TChild : class, new()
         {
+            this._Context.InitMappingInfo<TChild>();
             InitParentList();
             Expression newExp = GetMamber(expression);
             var name = ExpressionTool.GetMemberName(newExp);

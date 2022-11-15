@@ -100,7 +100,8 @@ namespace SqlSugar
             new Type[] { typeof(IDataRecord) }, type, true);
             ILGenerator generator = method.GetILGenerator();
             LocalBuilder result = generator.DeclareLocal(type);
-            generator.Emit(OpCodes.Newobj, type.GetConstructor(Type.EmptyTypes));
+            generator.Emit(OpCodes.Newobj, type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                                 null, Type.EmptyTypes, null));
             generator.Emit(OpCodes.Stloc, result);
             this.Context.InitMappingInfo(type);
             var columnInfos = this.Context.EntityMaintenance.GetEntityInfo(type).Columns;
@@ -119,6 +120,10 @@ namespace SqlSugar
                         if (this.ReaderKeys.Any(it => it.Equals(fileName, StringComparison.CurrentCultureIgnoreCase)))
                         {
                             BindClass(generator, result, columnInfo, ReaderKeys.First(it => it.Equals(fileName, StringComparison.CurrentCultureIgnoreCase)));
+                        }
+                        else if (this.ReaderKeys.Any(it => it.Equals(columnInfo.PropertyName, StringComparison.CurrentCultureIgnoreCase)))
+                        {
+                            BindClass(generator, result, columnInfo, ReaderKeys.First(it => it.Equals(columnInfo.PropertyName, StringComparison.CurrentCultureIgnoreCase)));
                         }
                     }
                     else if (!isGemo && columnInfo.IsJson && columnInfo.PropertyInfo.PropertyType != UtilConstants.StringType)
@@ -242,6 +247,10 @@ namespace SqlSugar
                 {
                     method = isNullableType ? getConvertInt32 : getInt32;
                 }
+                else if (bindPropertyType == UtilConstants.DateTimeOffsetType&&SugarCompatible.IsFramework)
+                {
+                    method = isNullableType ? getConvertdatetimeoffset : getdatetimeoffset;
+                }
                 else if (bindPropertyType == UtilConstants.ByteType)
                 {
                     method = isNullableType ? getConvertByte : getByte;
@@ -287,6 +296,8 @@ namespace SqlSugar
                         method = isNullableType ? getConvertByte : getByte;
                     if (bindProperyTypeName.IsContainsIn("int16"))
                         method = isNullableType ? getConvertInt16 : getInt16;
+                    if (bindProperyTypeName == "uint32"&&this.Context.CurrentConnectionConfig.DbType.IsIn(DbType.MySql,DbType.MySqlConnector))
+                        method = null;
                     break;
                 case CSharpDataType.@bool:
                     if (bindProperyTypeName == "bool" || bindProperyTypeName == "boolean")

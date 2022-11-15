@@ -90,6 +90,17 @@ namespace OrmTest
             var q1 = db.Queryable<Order>().Take(1);
             var q2 = db.Queryable<Order>().Take(2);
             var test02 = db.Union(q1, q2).ToList();
+            var test03 = db.Queryable<Order>().Select(it => new
+            {
+                names = SqlFunc.Subqueryable<Order>().Where(z => z.Id == it.Id).SelectStringJoin(z => z.Name, ",")
+            })
+          .ToList();
+            var test04 = db.Queryable<Order>().Where(z => SqlFunc.DateIsSame(z.CreateTime, DateTime.Now, DateType.Weekday)).ToList();
+            var test08= db.Queryable<Order>().Select(it => new
+            {
+                names = $"as{it.Id}fd{it.Id}a"
+            })
+           .ToList();
             Console.WriteLine("#### Examples End ####");
         }
 
@@ -279,6 +290,15 @@ namespace OrmTest
             var query2 = db.Queryable<Custom>();
             var list3=db.Queryable(query1, query2,JoinType.Left, (p1, p2) => p1.CustomId == p2.Id).Select<ViewOrder>().ToList();
 
+
+            db.Queryable<Order>()
+            .Select(it => new { id = it.Id })
+            .MergeTable()//合并成一个表 和 OrderItem 进行JOIN
+            .LeftJoin<OrderItem>((x, y) => x.id == y.ItemId)
+            .Select((x, y) => new { xid = x.id, yid = y.ItemId })
+            .MergeTable()//合并成一个表 和 OrderItem 进行JOIN
+            .LeftJoin<OrderItem>((x, y) => x.yid == y.ItemId)// 最后一个表不是匿名对象就行
+            .ToList();
             Console.WriteLine("#### Join Table End ####");
         }
 

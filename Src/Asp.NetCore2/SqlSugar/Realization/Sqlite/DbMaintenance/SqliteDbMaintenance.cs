@@ -500,8 +500,7 @@ namespace SqlSugar
                     {
                         item.IsPrimarykey = true;
                         item.DataType = "integer";
-                        Check.Exception(item.DataType == "integer", "Identity only integer type");
-                    }
+                        Check.Exception(item.DataType == "integer", "Identity only integer type");                    }
                     if (item.IsIdentity)
                     {
                         // sqlite 只支持 integer 自增长

@@ -368,7 +368,7 @@ namespace SqlSugar
                 model.Args.Add(data);
                 if (args.Count() == 2) 
                 {
-                    data.MemberName = (args.Last()).ToString();
+                    data.MemberName = (args.Last()).ToString().Replace("\"","");
                     data.MemberValue = "." ;
                 }
             }
@@ -376,7 +376,21 @@ namespace SqlSugar
             {
                 foreach (var item in args)
                 {
-                    AppendItem(parameter, name, args, model, item);
+                    if (name == "IIF" && item == args.First() && item is MemberExpression)
+                    {
+                        Expression trueValue = Expression.Constant(true);
+                        var newItem = ExpressionBuilderHelper.CreateExpression(item, trueValue, ExpressionType.And);
+                        var member = (item as MemberExpression);
+                        if (member.Member.Name == "HasValue") 
+                        {
+                            newItem = ExpressionBuilderHelper.CreateExpression(member.Expression, Expression.Constant(null), ExpressionType.And);
+                        }
+                        AppendItem(parameter, name, new List<Expression>() { newItem}, model, newItem);
+                    }
+                    else
+                    {
+                        AppendItem(parameter, name, args, model, item);
+                    }
                 }
                 if (appendArgs != null)
                 {
@@ -392,6 +406,7 @@ namespace SqlSugar
                 parameter.BaseParameter.CommonTempData = GetMethodValue(name, model);
             }
         }
+
         protected void Where(ExpressionParameter parameter, bool? isLeft, string name, IEnumerable<Expression> args, MethodCallExpressionModel model, List<MethodCallExpressionArgs> appendArgs = null)
         {
             foreach (var item in args)
@@ -549,7 +564,7 @@ namespace SqlSugar
             }
             else if (isBinaryExpression)
             {
-                model.Args.Add(GetMethodCallArgs(parameter, item));
+                model.Args.Add(GetMethodCallArgs(parameter, item,name));
             }
             else if (isSubIIF)
             {
@@ -773,9 +788,12 @@ namespace SqlSugar
                     type = DbType.PostgreSQL;
                 else if (this.Context is OpenGaussExpressionContext)
                     type = DbType.OpenGauss;
-                else if (this.Context.GetType().Name.StartsWith("MySql")) 
-                {
+                else if (this.Context.GetType().Name.StartsWith("MySql"))                 {
                     type = DbType.MySql;
+                }
+                else 
+                {
+                    type = GetType(this.Context.GetType().Name);
                 }
                 return this.Context.SqlFuncServices.First(it => it.UniqueMethodName == name).MethodValue(model, type, this.Context);
             }
@@ -990,6 +1008,10 @@ namespace SqlSugar
                     case "Format":
                         var xx=base.BaseParameter;
                         var result = this.Context.DbMehtods.Format(model);
+                        if (!string.IsNullOrEmpty(this.Context.MethodName)) 
+                        {
+                            result = this.Context.DbMehtods.FormatRowNumber(model);
+                        }
                         this.Context.Parameters.RemoveAll(it => model.Args.Select(x=>x.MemberName.ObjToString()).Contains(it.ParameterName) );
                         return result;
                     case "Abs":
@@ -1012,11 +1034,57 @@ namespace SqlSugar
                         return this.Context.DbMehtods.Desc(model);
                     case "Stuff":
                         return this.Context.DbMehtods.Stuff(model);
+                    case "RowNumber":
+                        return this.Context.DbMehtods.RowNumber(model);
+                    case "RowCount":
+                        return this.Context.DbMehtods.RowCount(model);
+                    case "Exists":
+                        if (model.Args.Count > 1) 
+                        {
+                            this.Context.Parameters.RemoveAll(it => model.Args[1].MemberName.ObjToString().Contains(it.ParameterName) );
+                            List<IConditionalModel> conditionalModels = (List<IConditionalModel>) model.Args[1].MemberValue;  
+                            var sqlObj = this.Context.SugarContext.Context.Queryable<object>().SqlBuilder.ConditionalModelToSql(conditionalModels, 0);
+                            model.Args[1].MemberName = sqlObj.Key;
+                            if (sqlObj.Value != null)
+                            {
+                                this.Context.Parameters.AddRange(sqlObj.Value);
+                            }
+                            else 
+                            {
+                                return " 1=1 ";
+                            }
+                        }
+                        return this.Context.DbMehtods.Exists(model);
+
+                    case "JsonField":
+                        return this.Context.DbMehtods.JsonField(model);
+                    case "JsonArrayLength":
+                        return this.Context.DbMehtods.JsonArrayLength(model);
+                    case "JsonContainsFieldName":
+                        return this.Context.DbMehtods.JsonContainsFieldName(model);
+                    case "JsonParse":
+                        return this.Context.DbMehtods.JsonParse(model);
+                    case "JsonLike":
+                        return this.Context.DbMehtods.JsonLike(model);
                     default:
                         break;
                 }
             }
             return null;
+        }
+
+        private DbType GetType(string name)
+        {
+            DbType result = DbType.SqlServer;
+            foreach (var item in UtilMethods.EnumToDictionary<DbType>())
+            {
+                if (name.StartsWith(item.Value.ToString())) 
+                {
+                    result = item.Value;
+                    break;
+                }
+            }
+            return result;
         }
 
         private bool IsContainsArray(MethodCallExpression express, string methodName, bool isValidNativeMethod)
@@ -1092,11 +1160,11 @@ namespace SqlSugar
             }
             else if (IsSqlite() && formatString == "yyyy-MM-dd HH:mm:ss")
             {
-                return $"strftime('%Y-%m-%d %H:%i:%S', {value})";
+                return $"strftime('%Y-%m-%d %H:%M:%S', {value})";
             }
             else if (IsSqlite() && formatString == "yyyy-MM-dd hh:mm:ss")
             {
-                return $"strftime('%Y-%m-%d %H:%i:%S', {value})";
+                return $"strftime('%Y-%m-%d %H:%M:%S', {value})";
             }
             else if (IsSqlite() && formatString == "yyyy-MM")
             {

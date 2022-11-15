@@ -30,7 +30,11 @@ namespace SqlSugar
                     resultConnector.CharacterSet = this.CharacterSet;
                     return resultConnector;
                 case DbType.Dm:
-                    break;
+                    return new DmFastBuilder();
+                case DbType.ClickHouse:
+                    var resultConnectorClickHouse = InstanceFactory.CreateInstance<IFastBuilder>("SqlSugar.ClickHouse.ClickHouseFastBuilder");
+                    resultConnectorClickHouse.CharacterSet = this.CharacterSet;
+                    return resultConnectorClickHouse;
                 case DbType.Kdbndp:
                     break;
                 case DbType.Oscar:
@@ -59,8 +63,13 @@ namespace SqlSugar
             }
             );
             var dt = new DataTable();
+            List<string> uInt64TypeName = new List<string>();
             foreach (DataColumn item in tempDataTable.Columns)
             {
+                if (item.DataType == typeof(UInt64)) 
+                {
+                    uInt64TypeName.Add(item.ColumnName);
+                }
                 dt.Columns.Add(item.ColumnName, item.DataType);
             }
             dt.TableName = GetTableName();
@@ -84,7 +93,8 @@ namespace SqlSugar
                     var value = ValueConverter(column, PropertyCallAdapterProvider<T>.GetInstance(column.PropertyName).InvokeGet(item));
                     if (isMySql && column.UnderType == UtilConstants.BoolType)
                     {
-                        if (value.ObjToBool() == false)
+
+                        if (value.ObjToBool() == false&& uInt64TypeName.Any(z=>z.EqualCase(column.DbColumnName)))
                         {
                             value = DBNull.Value;
                         }
@@ -92,6 +102,10 @@ namespace SqlSugar
                     else if (isSqliteCore&&column.UnderType == UtilConstants.StringType && value is bool)
                     {
                         value = "isSqliteCore_"+value.ObjToString();
+                    }
+                    else if (isSqliteCore && column.UnderType == UtilConstants.BoolType && value is bool)
+                    {
+                        value =Convert.ToBoolean(value)?1:0;
                     }
                     else if (column.UnderType == UtilConstants.DateTimeOffsetType && value != null && value != DBNull.Value)
                     {
@@ -167,6 +181,14 @@ namespace SqlSugar
                 }
             }
             ).Copy();
+            List<string> uInt64TypeName = new List<string>();
+            foreach (DataColumn item in tempDataTable.Columns)
+            {
+                if (item.DataType == typeof(UInt64))
+                {
+                    uInt64TypeName.Add(item.ColumnName);
+                }
+            }
             var temColumnsList = tempDataTable.Columns.Cast<DataColumn>().Select(it => it.ColumnName.ToLower()).ToList();
             var columns = dt.Columns.Cast<DataColumn>().Where(it => temColumnsList.Contains(it.ColumnName.ToLower())).ToList();
             foreach (DataRow item in dt.Rows)
@@ -176,13 +198,13 @@ namespace SqlSugar
                 {
 
                     dr[column.ColumnName] = item[column.ColumnName];
-                    if (dr[column.ColumnName] == null)
+                    if (dr[column.ColumnName] == null|| dr[column.ColumnName] == DBNull.Value)
                     {
                         dr[column.ColumnName] = DBNull.Value;
                     }
-                    if (column.DataType==UtilConstants.BoolType&&this.context.CurrentConnectionConfig.DbType.IsIn(DbType.MySql, DbType.MySqlConnector)) 
+                    else if(column.DataType==UtilConstants.BoolType&&this.context.CurrentConnectionConfig.DbType.IsIn(DbType.MySql, DbType.MySqlConnector)) 
                     {
-                        if (Convert.ToBoolean(dr[column.ColumnName]) == false) 
+                        if (Convert.ToBoolean(dr[column.ColumnName]) == false&&uInt64TypeName.Any(z => z.EqualCase(column.ColumnName))) 
                         {
                             dr[column.ColumnName] = DBNull.Value;
                         }

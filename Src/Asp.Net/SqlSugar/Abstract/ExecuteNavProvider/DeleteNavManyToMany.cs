@@ -16,12 +16,13 @@ namespace SqlSugar
             var parentNavigateProperty = parentEntity.Columns.FirstOrDefault(it => it.PropertyName == name);
             var thisEntity = this._Context.EntityMaintenance.GetEntityInfo<TChild>();
             var thisPkColumn = thisEntity.Columns.FirstOrDefault(it => it.IsPrimarykey == true);
-            Check.Exception(thisPkColumn == null, $"{thisPkColumn.EntityName} need primary key", $"{thisPkColumn.EntityName}需要主键");
-            Check.Exception(parentPkColumn == null, $"{parentPkColumn.EntityName} need primary key", $"{parentPkColumn.EntityName}需要主键");
+            Check.ExceptionEasy(thisPkColumn == null, $"{thisPkColumn.EntityName} need primary key", $"{thisPkColumn.EntityName}需要主键");
+            Check.ExceptionEasy(parentPkColumn == null, $"{parentPkColumn.EntityName} need primary key", $"{parentPkColumn.EntityName}需要主键");
             var mappingType = parentNavigateProperty.Navigat.MappingType;
             var mappingEntity = this._Context.EntityMaintenance.GetEntityInfo(mappingType);
             var mappingA = mappingEntity.Columns.FirstOrDefault(x => x.PropertyName == parentNavigateProperty.Navigat.MappingAId);
             var mappingB = mappingEntity.Columns.FirstOrDefault(x => x.PropertyName == parentNavigateProperty.Navigat.MappingBId);
+            Check.ExceptionEasy(mappingA == null || mappingB == null, $"Navigate property {name} error ", $"导航属性{name}配置错误");
             var mappingPk = mappingEntity.Columns
                    .Where(it => it.PropertyName != mappingA.PropertyName)
                    .Where(it => it.PropertyName != mappingB.PropertyName)
@@ -34,7 +35,7 @@ namespace SqlSugar
             }
 
             var aids = _ParentList.Select(it => parentPkColumn.PropertyInfo.GetValue(it)).ToList();
-            var bids = _Context.Queryable<object>().AS(mappingEntity.DbTableName).In(mappingA.DbColumnName, aids)
+            var bids = _Context.Queryable<object>().Filter(mappingEntity.Type).AS(mappingEntity.DbTableName).In(mappingA.DbColumnName, aids)
                 .Select(mappingB.DbColumnName).ToDataTable()
                 .Rows.Cast<System.Data.DataRow>().Select(it => it[0]).ToList();
 

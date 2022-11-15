@@ -6,6 +6,7 @@ using System.Data;
 using System.Data.Common;
 using System.Dynamic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -168,7 +169,10 @@ namespace SqlSugar
                 }
                 catch
                 {
-                    result.Add(name, null);
+                    if (!result.ContainsKey(name))
+                    {
+                        result.Add(name, null);
+                    }
                 }
             }
             return result;
@@ -198,6 +202,51 @@ namespace SqlSugar
                 }
                 return reval;
             }
+        }
+
+
+        public List<T> DataReaderToSelectJsonList<T>(IDataReader dataReader) 
+        {
+            List<T> result = new List<T>();
+            using (dataReader)
+            {
+                while (dataReader.Read())
+                {
+                    var value = dataReader.GetValue(0);
+                    if (value == null || value == DBNull.Value)
+                    {
+                        result.Add(default(T));
+                    }
+                    else
+                    {
+                        result.Add(Context.Utilities.DeserializeObject<T>(value.ToString()));
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        public List<T> DataReaderToSelectArrayList<T>(IDataReader dataReader)
+        {
+            List<T> result = new List<T>();
+            using (dataReader)
+            {
+                while (dataReader.Read())
+                {
+                    var value = dataReader.GetValue(0);
+                    if (value == null || value == DBNull.Value)
+                    {
+                        result.Add(default(T));
+                    }
+                    else
+                    {
+                        result.Add((T)value);
+                    }
+                }
+            }
+
+            return result;
         }
         /// <summary>
         /// DataReaderToList
@@ -246,6 +295,49 @@ namespace SqlSugar
                 return reval;
             }
         }
+
+
+        public async Task<List<T>> DataReaderToSelectJsonListAsync<T>(IDataReader dataReader)
+        {
+            List<T> result = new List<T>();
+            using (dataReader)
+            {
+                while (await ((DbDataReader)dataReader).ReadAsync())
+                {
+                    var value = dataReader.GetValue(0);
+                    if (value == null || value == DBNull.Value)
+                    {
+                        result.Add(default(T));
+                    }
+                    else
+                    {
+                        result.Add(Context.Utilities.DeserializeObject<T>(value.ToString()));
+                    }
+                }
+            }
+            return result;
+        }
+        public async Task<List<T>> DataReaderToSelectArrayListAsync<T>(IDataReader dataReader)
+        {
+            List<T> result = new List<T>();
+            using (dataReader)
+            {
+                while (await ((DbDataReader)dataReader).ReadAsync())
+                {
+                    var value = dataReader.GetValue(0);
+                    if (value == null || value == DBNull.Value)
+                    {
+                        result.Add(default(T));
+                    }
+                    else
+                    {
+                        result.Add((T)value);
+                    }
+                }
+            }
+            return result;
+        }
+
         /// <summary>
         /// DataReaderToList
         /// </summary>
@@ -290,7 +382,7 @@ namespace SqlSugar
                     }
                     else if (IsJsonItem(readerValues, name))
                     {
-                        result.Add(name, DeserializeObject<Dictionary<string, object>>(readerValues.First().Value.ObjToString()));
+                        result.Add(name, DeserializeObject<Dictionary<string, object>>(readerValues.First(it=>it.Key.EqualCase(name)).Value.ObjToString()));
                     }
                     else if (IsJsonList(readerValues, item))
                     {
@@ -366,8 +458,14 @@ namespace SqlSugar
                    readerValues[item.Name.ToLower()].GetType()==UtilConstants.ByteArrayType);
         }
 
-        private static bool IsJsonItem(Dictionary<string, object> readerValues, string name)
+        private static bool IsJsonItem(Dictionary<string, object> readerValuesOld, string name)
         {
+            Dictionary<string, object> readerValues = new Dictionary<string, object>();
+            if (readerValuesOld.Any(it => it.Key.EqualCase(name))) 
+            {
+                var data = readerValuesOld.First(it => it.Key.EqualCase(name));
+                readerValues.Add(data.Key,data.Value);
+            }
             return readerValues != null &&
                                     readerValues.Count == 1 &&
                                     readerValues.First().Key == name &&
@@ -398,6 +496,10 @@ namespace SqlSugar
                 return null;
             }
             var classProperties = type.GetProperties().ToList();
+            if (type.Name.StartsWith("Dictionary`")) 
+            {
+                return null;
+            }
             var columns = this.Context.EntityMaintenance.GetEntityInfo(type).Columns;
             foreach (var prop in classProperties)
             {
@@ -436,10 +538,20 @@ namespace SqlSugar
                 {
                     var key = typeName + "." + name;
                     var info = readerValues.Select(it => it.Key).FirstOrDefault(it => it.ToLower() == key.ToLower());
+                    if (info == null) 
+                    {
+                        key = item.Name + "." + name;
+                        info = readerValues.Select(it => it.Key).FirstOrDefault(it => it.ToLower() == key.ToLower());
+                    }
                     var oldInfo = info;
                     if (mappingKeys!=null&&mappingKeys.ContainsKey(item.Name)) 
                     {
                         key = mappingKeys[item.Name]+"."+typeName + "." + name;
+                        info = readerValues.Select(it => it.Key).FirstOrDefault(it => it.ToLower() == key.ToLower());
+                    }
+                    else if (mappingKeys != null && mappingKeys.ContainsKey("Single_" + name))
+                    {
+                        key =mappingKeys["Single_" + name];
                         info = readerValues.Select(it => it.Key).FirstOrDefault(it => it.ToLower() == key.ToLower());
                     }
                     if (info == null&&oldInfo!=null) 
@@ -451,9 +563,12 @@ namespace SqlSugar
                         var addItem = readerValues[info];
                         if (addItem == DBNull.Value)
                             addItem = null;
-                        if (UtilMethods.GetUnderType(prop.PropertyType) == UtilConstants.IntType)
+                        if (prop.PropertyType == UtilConstants.IntType )
                         {
                             addItem = addItem.ObjToInt();
+                        } else if (UtilMethods.GetUnderType(prop.PropertyType) == UtilConstants.IntType && addItem != null)
+                        {
+                            addItem= addItem.ObjToInt();
                         }
                         else if (prop.PropertyType.IsEnum()&&addItem is decimal)
                         {
@@ -649,7 +764,7 @@ namespace SqlSugar
         public  DataTable ListToDataTable<T>(List<T> list)
         {
             DataTable result = new  DataTable();
-            if (list.Count > 0)
+            if (list!=null&&list.Count > 0)
             {
                 PropertyInfo[] propertys = list[0].GetType().GetProperties();
                 foreach (PropertyInfo pi in propertys)
@@ -774,8 +889,9 @@ namespace SqlSugar
 
         #endregion
 
+        #region Conditional
         public List<IConditionalModel> JsonToConditionalModels(string json)
-        { 
+        {
             List<IConditionalModel> conditionalModels = new List<IConditionalModel>();
             var jarray = this.Context.Utilities.DeserializeObject<JArray>(json);
             foreach (var item in jarray)
@@ -799,16 +915,16 @@ namespace SqlSugar
                         {
                             // ConditionalType = (ConditionalType)Convert.ToInt32(),
                             FieldName = item["FieldName"] + "",
-                            CSharpTypeName = item["CSharpTypeName"].ObjToString().IsNullOrEmpty() ? null: item["CSharpTypeName"].ObjToString(),
-                            FieldValue = item["FieldValue"].Value<string>()==null?null: item["FieldValue"].ToString()
+                            CSharpTypeName = item["CSharpTypeName"].ObjToString().IsNullOrEmpty() ? null : item["CSharpTypeName"].ObjToString(),
+                            FieldValue = item["FieldValue"].Value<string>() == null ? null : item["FieldValue"].ToString()
                         };
                         if (typeValue.IsInt())
                         {
                             conditionalModel.ConditionalType = (ConditionalType)Convert.ToInt32(typeValue);
                         }
-                        else 
+                        else
                         {
-                            conditionalModel.ConditionalType = (ConditionalType)Enum.Parse(typeof(ConditionalType),typeValue.ObjToString());
+                            conditionalModel.ConditionalType = (ConditionalType)Enum.Parse(typeof(ConditionalType), typeValue.ObjToString());
                         }
                         conditionalModels.Add(conditionalModel);
                     }
@@ -836,9 +952,9 @@ namespace SqlSugar
                 {
                     conditionalModel = new ConditionalModel()
                     {
-                        ConditionalType = (ConditionalType)Convert.ToInt32(value["ConditionalType"].Value<int>()),
+                        ConditionalType = GetConditionalType(value),
                         FieldName = value["FieldName"] + "",
-                        CSharpTypeName= value["CSharpTypeName"].ObjToString().IsNullOrEmpty()? null : value["CSharpTypeName"].ObjToString(),
+                        CSharpTypeName = value["CSharpTypeName"].ObjToString().IsNullOrEmpty() ? null : value["CSharpTypeName"].ObjToString(),
                         FieldValue = value["FieldValue"].Value<string>() == null ? null : value["FieldValue"].ToString()
                     };
                 }
@@ -846,5 +962,26 @@ namespace SqlSugar
             }
             return result;
         }
+        private static ConditionalType GetConditionalType(JToken value)
+        {
+            if (value["ConditionalType"].Type == JTokenType.String)
+            {
+                var stringValue = value["ConditionalType"].Value<string>();
+                if (!stringValue.IsInt())
+                {
+                    return (ConditionalType)Enum.Parse(typeof(ConditionalType), stringValue);
+                }
+            }
+            return (ConditionalType)Convert.ToInt32(value["ConditionalType"].Value<int>());
+        }
+        #endregion
+
+        #region Tree
+        public List<T> ToTree<T>(List<T> list, Expression<Func<T, IEnumerable<object>>> childListExpression, Expression<Func<T, object>> parentIdExpression, Expression<Func<T, object>> pkExpression, object rootValue) 
+        {
+            var pk = ExpressionTool.GetMemberName(pkExpression);
+          return  (this.Context.Queryable<T>() as QueryableProvider<T>).GetTreeRoot(childListExpression,parentIdExpression,pk,list,rootValue);
+        }
+        #endregion
     }
 }

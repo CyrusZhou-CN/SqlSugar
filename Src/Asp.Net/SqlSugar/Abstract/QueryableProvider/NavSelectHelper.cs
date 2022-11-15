@@ -24,7 +24,8 @@ namespace SqlSugar
                 var includeQueryable = queryableProvider.Clone();
                 includeQueryable.Select(GetGroupSelect(typeof(T), queryableProvider.Context, queryableProvider.QueryBuilder));
                 includeQueryable.QueryBuilder.NoCheckInclude = true;
-                MegerList(result, includeQueryable.ToList(), sqlfuncQueryable.Context);
+                var mappingColumn = GetMappingColumn(expression);
+                MegerList(result, includeQueryable.ToList(), sqlfuncQueryable.Context,mappingColumn);
             }
             else if (isSqlFunc)
             {
@@ -48,12 +49,13 @@ namespace SqlSugar
                 {
                     try
                     {
+                        Console.WriteLine("Select DTO  error  . Warning:"+ex.Message);
                         result = Action(expression, queryableProvider);
                     }
                     catch  
                     {
 
-                        throw ex;
+                        throw;
                     }
                 }
             }
@@ -86,53 +88,41 @@ namespace SqlSugar
 
         private static List<TResult> SqlFunc<T, TResult>(Expression<Func<T, TResult>> expression, QueryableProvider<T> queryableProvider)
         {
+            var mappingColumn = GetMappingColumn(expression);
+            if (mappingColumn.Any(it => it.IsError)) 
+            {
+                return Action(expression,queryableProvider);
+            }
             List<TResult> result;
             var sqlfuncQueryable = queryableProvider.Clone();
+            var dtoEntity = sqlfuncQueryable.Context.EntityMaintenance.GetEntityInfo<TResult>().Columns;
+            var tableEntity = sqlfuncQueryable.Context.EntityMaintenance.GetEntityInfo<T>().Columns;
+            var ignoreColumns = GetIgnoreColumns(dtoEntity,tableEntity);
             sqlfuncQueryable.QueryBuilder.Includes = null;
             result = sqlfuncQueryable
+                .IgnoreColumns(ignoreColumns)
                 .Select(expression)
                 .ToList();
             var selector = GetDefaultSelector(queryableProvider.Context.EntityMaintenance.GetEntityInfo<T>(), queryableProvider.QueryBuilder);
             var queryable = queryableProvider.Select(selector).Clone();
             queryable.QueryBuilder.NoCheckInclude = true;
             var includeList = queryable.ToList();
-            MegerList(result, includeList, sqlfuncQueryable.Context);
+            MegerList(result, includeList, sqlfuncQueryable.Context,mappingColumn);
             return result;
         }
 
+        private static  string[] GetIgnoreColumns(List<EntityColumnInfo> dtoEntity, List<EntityColumnInfo> tableEntity)
+        {
+            var column = (from dto in dtoEntity
+                    join tab in tableEntity on dto.PropertyInfo.PropertyType equals tab.PropertyInfo.PropertyType
+                    where tab.Navigat!=null
+                    select tab.PropertyName).Distinct().ToArray();
+            return column;
+        }
 
         internal static async Task<List<TResult>> GetListAsync<T, TResult>(Expression<Func<T, TResult>> expression, QueryableProvider<T> queryableProvider)
         {
-            List<TResult> result = new List<TResult>();
-            var isSqlFunc = IsSqlFunc(expression, queryableProvider);
-            if (isSqlFunc && isGroup(expression, queryableProvider))
-            {
-                var sqlfuncQueryable = queryableProvider.Clone();
-                sqlfuncQueryable.QueryBuilder.Includes = null;
-                result =await sqlfuncQueryable
-                    .Select(expression)
-                    .ToListAsync();
-                var includeQueryable = queryableProvider.Clone();
-                includeQueryable.Select(GetGroupSelect(typeof(T), queryableProvider.Context, queryableProvider.QueryBuilder));
-                includeQueryable.QueryBuilder.NoCheckInclude = true;
-                MegerList(result,await includeQueryable.ToListAsync(), sqlfuncQueryable.Context);
-            }
-            else if (isSqlFunc)
-            {
-                var sqlfuncQueryable = queryableProvider.Clone();
-                sqlfuncQueryable.QueryBuilder.Includes = null;
-                result =await sqlfuncQueryable
-                    .Select(expression)
-                    .ToListAsync();
-                var includeList =await queryableProvider.Clone().ToListAsync();
-                MegerList(result, includeList, sqlfuncQueryable.Context);
-            }
-            else
-            {
-                var list =await queryableProvider.ToListAsync();
-                result = list.Select(expression.Compile()).ToList();
-            }
-            return result;
+            return await Task.Run(()=> { return GetList(expression,queryableProvider); });
         }
 
         private static string GetGroupSelect(Type type,SqlSugarProvider context,QueryBuilder queryBuilder)
@@ -188,7 +178,7 @@ namespace SqlSugar
             return columns;
         }
 
-        private static void MegerList<TResult, T>(List<TResult> result, List<T> includeList,SqlSugarProvider context)
+        private static void MegerList<TResult, T>(List<TResult> result, List<T> includeList,SqlSugarProvider context,List<NavMappingColumn> navMappingColumns)
         {
             if (result.Count != includeList.Count) return;
             var columns = context.EntityMaintenance.GetEntityInfo<T>().Columns;
@@ -206,6 +196,15 @@ namespace SqlSugar
                             z.PropertyName.Equals(column.PropertyName)&&
                             z.PropertyInfo.PropertyType==column.PropertyInfo.PropertyType
                             );
+                        if (resColumn == null && navMappingColumns.Any(z => z.Value == column.PropertyName)) 
+                        {
+                            var mappingColumn = navMappingColumns.First(z => z.Value == column.PropertyName);
+                            resColumn = resColumns
+                           .FirstOrDefault(z =>
+                           z.PropertyName.Equals(mappingColumn.Key) &&
+                           z.PropertyInfo.PropertyType == column.PropertyInfo.PropertyType
+                           );
+                        }
                         if (resColumn != null) 
                         {
                           var  resItem=  result[i];
@@ -273,11 +272,81 @@ namespace SqlSugar
             }
             return false;
         }
+        private static List<NavMappingColumn> GetMappingColumn(Expression expression)
+        {
+            var body = ExpressionTool.GetLambdaExpressionBody(expression);
+            var parameterName=(expression as LambdaExpression).Parameters.FirstOrDefault().Name;
+            List<NavMappingColumn> result = new List<NavMappingColumn>();
+            if (body is NewExpression)
+            {
+                var index = 0;
+                var arg = ((NewExpression)body).Arguments;
+                var members = ((NewExpression)body).Members;
+                foreach (var item in arg)
+                {
+                    var name=members[index].Name;
+                    if (item is MethodCallExpression)
+                    {
+                        AddCallError(result, item, parameterName);
+                    }
+                    index++;
+                }
+            }
+            else if (body is MemberInitExpression)
+            {
+                foreach (var item in ((MemberInitExpression)body).Bindings)
+                {
+                    MemberAssignment memberAssignment = (MemberAssignment)item;
+                    var key= memberAssignment.Member.Name;
+                    var value = memberAssignment.Expression;
+                    if (memberAssignment.Expression is MemberExpression)
+                    {
+                        result.Add(new NavMappingColumn() { Key = key, Value = ExpressionTool.GetMemberName(memberAssignment.Expression) });
+                    }
+                    else if(memberAssignment.Expression is MethodCallExpression)
+                    {
+                        AddCallError(result, memberAssignment.Expression,parameterName);
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static void AddCallError(List<NavMappingColumn> result, Expression item,string parameterName)
+        {
+            var method = (item as MethodCallExpression);
+            if (method.Method.Name == "ToList" && method.Arguments.Count > 0 && method.Arguments[0] is MethodCallExpression)
+            {
+                method = (MethodCallExpression)method.Arguments[0];
+            }
+            if (method.Method.Name == "Select")
+            {
+                if (!item.ToString().Contains("Subqueryable"))
+                {
+                    result.Add(new NavMappingColumn() { IsError = true });
+                }
+            }
+            else if (method.Method.Name == "Join")
+            {
+    
+                if (item.ToString().Contains($" {parameterName}."))
+                {
+                    result.Add(new NavMappingColumn() { IsError = true });
+                }
+            }
+        }
 
         private static bool isGroup<T, TResult>(Expression<Func<T, TResult>> expression, QueryableProvider<T> queryableProvider)
         {
             var isGroup=queryableProvider.QueryBuilder.GetGroupByString.HasValue();
             return isGroup;
+        }
+
+        internal class NavMappingColumn 
+        {
+            public string Key { get; set; }
+            public string Value { get; set; }
+            public bool IsError { get;  set; }
         }
     }
 }

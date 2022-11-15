@@ -94,9 +94,95 @@ namespace OrmTest
             {
                 throw new Exception("unit error");
             }
-        
+            db.CodeFirst.InitTables<Unitasdfafasx>();
+            db.Queryable<Unitasdfafasx>().ToList();
+            db.Queryable<Unitasdfafasx>()
+                .Select(x1111 => new
+                {
+                    z=SqlFunc.Subqueryable<Unitasdfafasx>().Select(s=>s.id)
+                }).ToList();
+            db.CodeFirst.InitTables<ApiLog>();
+    
+ 
+            var list3=db.Queryable<ApiLog>().ToList();
+
+            db.MappingTables = new MappingTableList();
+            db.MappingTables.Add("a", "b");
+            db.MappingTables.Add("c", "d");
+            db.CodeFirst.As<ApiLog>("ApiLog0001").InitTables<ApiLog>();
+            db.Queryable<ApiLog>().AS("ApiLog0001").ToList();
+            db.CodeFirst.As<ApiLog>("ApiLog0002").InitTables<ApiLog>();
+            db.Queryable<ApiLog>().AS("ApiLog0002").ToList();
+            db.Queryable<ApiLog>().ToList();
+            if (db.MappingTables.Count != 2) 
+            {
+                throw new Exception("unit error");
+            }
+            if (db.MappingTables.First(it=>it.EntityName=="a").DbTableName!="b")
+            {
+                throw new Exception("unit error");
+            }
+            if (db.MappingTables.First(it => it.EntityName == "c").DbTableName != "d")
+            {
+                throw new Exception("unit error");
+            }
+        }
+        /// <summary>
+
+        /// 接口请求
+
+        /// </summary>
+
+        public class ApiLog
+
+        {
+
+            /// <summary>
+
+            /// Id
+
+            /// </summary>
+
+            public long Id { get; protected set; }
+
+            /// <summary>
+
+            /// 请求用户
+
+            /// </summary>
+
+            public string  RequestUser { get; set; }
+
+       
+             
+
+
+
+            private ApiLog()
+
+            {
+
+
+
+            }
+
+
+
+            public ApiLog(long Id)
+
+            {
+
+                this.Id = Id;
+
+            }
+
         }
 
+        [SugarTable("[1.1.dsfadsaf]")]
+        public class Unitasdfafasx
+        {
+            public string id { get; set; }
+        }
         public class UnitDateTimeOffset
         {
             public DateTimeOffset timeOffset { get; set; }

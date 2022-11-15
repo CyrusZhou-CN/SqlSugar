@@ -151,6 +151,10 @@ namespace SqlSugar
         /// <returns>the text contents of this XML element node</returns>
         public string GetXElementNodeValue(Type entityType, string nodeAttributeName)
         {
+            if (this.Context.CurrentConnectionConfig?.MoreSettings?.IsNoReadXmlDescription == true)
+            {
+                return "";
+            }
             var path = entityType.Assembly.Location;
             if (string.IsNullOrEmpty(path))
             {
@@ -300,6 +304,7 @@ namespace SqlSugar
                         column.IsArray = sugarColumn.IsArray;
                         column.IsTreeKey = sugarColumn.IsTreeKey;
                         column.SqlParameterDbType = sugarColumn.SqlParameterDbType;
+                        column.SqlParameterSize = sugarColumn.SqlParameterSize;
                         column.CreateTableFieldSort = sugarColumn.CreateTableFieldSort;
                         if (sugarColumn.IsJson && String.IsNullOrEmpty(sugarColumn.ColumnDataType))
                         {
@@ -325,9 +330,11 @@ namespace SqlSugar
                         column.IsIgnore = true;
                         column.NoSerialize = sugarColumn.NoSerialize;
                         column.ColumnDescription = sugarColumn.ColumnDescription;
+                        column.IsJson = sugarColumn.IsJson;
+                        column.IsArray = sugarColumn.IsArray;
                     }
                 }
-                if (column.ColumnDescription.IsNullOrEmpty()) column.ColumnDescription = GetPropertyAnnotation(result.Type, column.DbColumnName);
+                if (column.ColumnDescription.IsNullOrEmpty()) column.ColumnDescription = GetPropertyAnnotation(result.Type, column.PropertyName);
                 if (this.Context.MappingColumns.HasValue())
                 {
                     var golbalMappingInfo = this.Context.MappingColumns.FirstOrDefault(it => it.EntityName.Equals(result.EntityName, StringComparison.CurrentCultureIgnoreCase) && it.PropertyName == column.PropertyName);

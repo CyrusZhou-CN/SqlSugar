@@ -281,6 +281,10 @@ namespace SqlSugar
         {
             var connString = this.Context.CurrentConnectionConfig.ConnectionString;
             var linuxPath = connString.Split('=')?[1]?.TrimStart();
+            if (connString == null) 
+            {
+                throw new Exception("ConnectionString is null");
+            }
             var path = Regex.Match(connString, @"[a-z,A-Z]\:\\.+\\").Value;
             if (linuxPath.StartsWith("."))
             {//当前目录写法 . 号

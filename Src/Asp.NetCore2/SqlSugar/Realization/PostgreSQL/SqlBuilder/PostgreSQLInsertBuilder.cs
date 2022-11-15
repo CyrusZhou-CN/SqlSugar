@@ -32,6 +32,10 @@ namespace SqlSugar
 
         public override string SqlTemplateBatchSelect => " {0} ";
 
+        public override Func<string, string, string> ConvertInsertReturnIdFunc { get; set; } = (name, sql) =>
+        {
+            return sql.Trim().TrimEnd(';')+ $"returning {name} ";
+        };
         public override string ToSqlString()
         {
             if (IsNoInsertNull)
@@ -52,6 +56,10 @@ namespace SqlSugar
                 StringBuilder batchInsetrSql = new StringBuilder();
                 int pageSize = 200;
                 int pageIndex = 1;
+                if (IsNoPage&&IsReturnPkList) 
+                {
+                    pageSize = groupList.Count;
+                }
                 int totalRecord = groupList.Count;
                 int pageCount = (totalRecord + pageSize - 1) / pageSize;
                 while (pageCount >= pageIndex)
@@ -80,7 +88,7 @@ namespace SqlSugar
                             {
                                 return string.Format(SqlTemplateBatchSelect, "NULL");
                             }
-                            return string.Format(SqlTemplateBatchSelect, "'" + value.ObjToString().ToSqlFilter() + "'");
+                            return string.Format(SqlTemplateBatchSelect, "'" + value.ObjToStringNoTrim().ToSqlFilter() + "'");
                         })) + "),");
                         ++i;
                     }

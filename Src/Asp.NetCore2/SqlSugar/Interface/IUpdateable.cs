@@ -21,6 +21,7 @@ namespace SqlSugar
 
 
         IUpdateable<T> AS(string tableName);
+        IUpdateable<T> AsType(Type tableNameType);
         IUpdateable<T> With(string lockString);
 
 
@@ -68,9 +69,11 @@ namespace SqlSugar
         /// <param name="columns"></param>
         /// <returns></returns>
         IUpdateable<T> SetColumns(Expression<Func<T, T>> columns);
+        IUpdateable<T> SetColumns(Expression<Func<T, T>> columns,bool appendColumnsByDataFilter);
         IUpdateable<T> SetColumns(string fieldName,object fieldValue);
 
-
+        IUpdateable<T> SetColumns(Expression<Func<T,object>> filedNameExpression, object fieldValue);
+        IUpdateable<T> SetColumnsIF(bool isUpdateColumns, Expression<Func<T, object>> filedNameExpression, object fieldValue);
         IUpdateable<T> UpdateColumnsIF(bool isUpdateColumns,Expression<Func<T, object>> columns);
         IUpdateable<T> UpdateColumnsIF(bool isUpdateColumns, params string[] columns);
 
@@ -90,6 +93,7 @@ namespace SqlSugar
 
         IUpdateable<T> IsEnableUpdateVersionValidation();
         IUpdateable<T> EnableDiffLogEvent(object businessData = null);
+        IUpdateable<T> EnableDiffLogEventIF(bool isEnableDiffLog,object businessData = null);
         IUpdateable<T> ReSetValue(Action<T> setValueExpression);
         IUpdateable<T> RemoveDataCache();
         IUpdateable<T> RemoveDataCache(string likeString);

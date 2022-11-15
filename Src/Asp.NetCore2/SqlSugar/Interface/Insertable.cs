@@ -12,6 +12,8 @@ namespace SqlSugar
         InsertBuilder InsertBuilder { get; set; }
         int ExecuteCommand();
         Task<int> ExecuteCommandAsync();
+        List<Type> ExecuteReturnPkList<Type>();
+        Task<List<Type>> ExecuteReturnPkListAsync<Type>();
         long ExecuteReturnSnowflakeId();
         List<long> ExecuteReturnSnowflakeIdList();
         Task<long> ExecuteReturnSnowflakeIdAsync();
@@ -25,6 +27,7 @@ namespace SqlSugar
         long ExecuteReturnBigIdentity();
         Task<long> ExecuteReturnBigIdentityAsync();
         IInsertable<T> AS(string tableName);
+        IInsertable<T> AsType(Type tableNameType);
         IInsertable<T> With(string lockString);
         IInsertable<T> InsertColumns(Expression<Func<T, object>> columns);
         IInsertable<T> InsertColumns(params string[] columns);
@@ -39,6 +42,7 @@ namespace SqlSugar
         IInsertable<T> CallEntityMethod(Expression<Action<T>> method);
 
         IInsertable<T> EnableDiffLogEvent(object businessData = null);
+        IInsertable<T> EnableDiffLogEventIF(bool isDiffLogEvent, object businessData=null);
         IInsertable<T> RemoveDataCache();
         IInsertable<T> RemoveDataCache(string likeString);
         KeyValuePair<string, List<SugarParameter>> ToSql();

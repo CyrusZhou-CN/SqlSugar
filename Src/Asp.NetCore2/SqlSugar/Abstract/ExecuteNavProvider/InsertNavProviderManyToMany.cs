@@ -16,21 +16,32 @@ namespace SqlSugar
             var parentNavigateProperty = parentEntity.Columns.FirstOrDefault(it => it.PropertyName == name);
             var thisEntity = this._Context.EntityMaintenance.GetEntityInfo<TChild>();
             var thisPkColumn = thisEntity.Columns.FirstOrDefault(it => it.IsPrimarykey == true);
-            Check.Exception(thisPkColumn == null, $"{thisPkColumn.EntityName} need primary key", $"{thisPkColumn.EntityName}需要主键");
-            Check.Exception(parentPkColumn == null, $"{parentPkColumn.EntityName} need primary key", $"{parentPkColumn.EntityName}需要主键");
+            Check.ExceptionEasy(thisPkColumn == null, $"{thisPkColumn.EntityName} need primary key", $"{thisPkColumn.EntityName}需要主键");
+            Check.ExceptionEasy(parentPkColumn == null, $"{parentPkColumn.EntityName} need primary key", $"{parentPkColumn.EntityName}需要主键");
             var mappingType=parentNavigateProperty.Navigat.MappingType;
             var mappingEntity = this._Context.EntityMaintenance.GetEntityInfo(mappingType);
             var mappingA = mappingEntity.Columns.FirstOrDefault(x=>x.PropertyName== parentNavigateProperty.Navigat.MappingAId);
             var mappingB = mappingEntity.Columns.FirstOrDefault(x => x.PropertyName == parentNavigateProperty.Navigat.MappingBId);
+            Check.ExceptionEasy(mappingA == null || mappingB == null, $"Navigate property {name} error ", $"导航属性{name}配置错误");
             var mappingPk = mappingEntity.Columns
                    .Where(it => it.PropertyName != mappingA.PropertyName)
                    .Where(it => it.PropertyName != mappingB.PropertyName)
                    .Where(it => it.IsPrimarykey && !it.IsIdentity && it.OracleSequenceName.IsNullOrEmpty()).FirstOrDefault();
-            Check.Exception(mappingA == null || mappingB == null, $"Navigate property {name} error ", $"导航属性{name}配置错误");
+            var mappingOthers = mappingEntity.Columns
+                   .Where(it => it.PropertyName != mappingA.PropertyName)
+                   .Where(it => it.PropertyName != mappingB.PropertyName)
+                   .Where(it => !it.IsIdentity)
+                   .Where(it => !it.IsOnlyIgnoreInsert)
+                   .Where(it => !it.IsIgnore)
+                   .Where(it => !it.IsPrimarykey);
             List<Dictionary<string, object>> mappgingTables = new List<Dictionary<string, object>>();
             foreach (var item in parentList)
             {
                 var items= parentNavigateProperty.PropertyInfo.GetValue(item);
+                if (items == null)
+                {
+                    continue;
+                }
                 var children=((List<TChild>)items);
                 InsertDatas(children, thisPkColumn);
                 var parentId = parentPkColumn.PropertyInfo.GetValue(item);
@@ -40,6 +51,27 @@ namespace SqlSugar
                     Dictionary<string,object> keyValuePairs = new Dictionary<string,object>();
                     keyValuePairs.Add(mappingA.DbColumnName, parentId);
                     keyValuePairs.Add(mappingB.DbColumnName, chidId);
+                    if (mappingOthers != null)
+                    {
+                        foreach (var pair in mappingOthers)
+                        {
+                            if (!keyValuePairs.ContainsKey(pair.DbColumnName))
+                            {
+                                if (pair.UnderType == UtilConstants.DateType)
+                                {
+                                    keyValuePairs.Add(pair.DbColumnName, DateTime.Now);
+                                }
+                                else if (pair.UnderType == UtilConstants.StringType)
+                                {
+                                    keyValuePairs.Add(pair.DbColumnName, UtilConstants.Space);
+                                }
+                                else
+                                {
+                                    keyValuePairs.Add(pair.DbColumnName, UtilMethods.GetDefaultValue(pair.UnderType));
+                                }
+                            }
+                        }
+                    }
                     if (mappingPk != null) 
                     {
                         SetMappingTableDefaultValue(mappingPk, keyValuePairs);
@@ -48,8 +80,16 @@ namespace SqlSugar
                 }
             }
             var ids = mappgingTables.Select(x => x[mappingA.DbColumnName]).ToList();
-            this._Context.Deleteable<object>().AS(mappingEntity.DbTableName).In(mappingA.DbColumnName, ids).ExecuteCommand();
+            if (_navOptions != null && _navOptions.ManyToManyNoDeleteMap)
+            {
+                //The reserved
+            }
+            else
+            {
+                this._Context.Deleteable<object>().AS(mappingEntity.DbTableName).In(mappingA.DbColumnName, ids).ExecuteCommand();
+            }
             this._Context.Insertable(mappgingTables).AS(mappingEntity.DbTableName).ExecuteCommand();
+            SetNewParent<TChild>(thisEntity, thisPkColumn);
         }
 
         private void SetMappingTableDefaultValue(EntityColumnInfo mappingPk, Dictionary<string, object> keyValuePairs)

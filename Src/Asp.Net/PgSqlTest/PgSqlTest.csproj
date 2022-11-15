@@ -35,6 +35,10 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\Demo\DmTest\DmTest\References\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Buffers.4.4.0\lib\netstandard1.1\System.Buffers.dll</HintPath>
@@ -99,7 +103,12 @@
     <Compile Include="Models\Tree.cs" />
     <Compile Include="Models\ViewOrder.cs" />
     <Compile Include="Config.cs" />
+    <Compile Include="UnitTest\Unit001.cs" />
+    <Compile Include="UnitTest\UnitByteArray.cs" />
+    <Compile Include="UnitTest\UnitPgSplit.cs" />
+    <Compile Include="UnitTest\UJsonFunc.cs" />
     <Compile Include="UnitTest\UCustom013.cs" />
+    <Compile Include="UnitTest\UCustom07.cs" />
     <Compile Include="UnitTest\UCustom08.cs" />
     <Compile Include="UnitTest\UAopTest.cs" />
     <Compile Include="UnitTest\UCustom01.cs" />
@@ -108,6 +117,7 @@
     <Compile Include="UnitTest\UCustom014.cs" />
     <Compile Include="UnitTest\UCustom015.cs" />
     <Compile Include="UnitTest\UCustom016.cs" />
+    <Compile Include="UnitTest\UnitTestReturnPkList.cs" />
     <Compile Include="UnitTest\USave.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

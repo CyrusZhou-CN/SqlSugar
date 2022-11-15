@@ -109,6 +109,7 @@ namespace SqlSugar
         public virtual Action<Type> InitMappingInfo { get; set; }
         public virtual Action RefreshMapping { get; set; }
         public virtual Type SubTableType { get;  set; }
+        public string MethodName { get;  set; }
         #endregion
 
         #region Core methods 
@@ -158,6 +159,7 @@ namespace SqlSugar
         #endregion
 
         #region Override methods
+        public virtual string GetLimit() { return null; }
         public virtual string GetTranslationTableName(string entityName, bool isMapping = true)
         {
             Check.ArgumentNullException(entityName, string.Format(ErrorMessage.ObjNotExist, "Table Name"));
@@ -178,7 +180,11 @@ namespace SqlSugar
             {
                 var mappingInfo = this.MappingTables.FirstOrDefault(it => it.EntityName.Equals(entityName, StringComparison.CurrentCultureIgnoreCase));
                 var name = (mappingInfo == null ? entityName : mappingInfo.DbTableName);
-                if (name.Contains("."))
+                if (name.Contains(SqlTranslationLeft) && name.Contains(SqlTranslationRight)) 
+                {
+                    return name;
+                }
+                else if (name.Contains("."))
                 {
                     return string.Join(".", name.Split('.').Select(it => SqlTranslationLeft + it + SqlTranslationRight));
                 }

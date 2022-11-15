@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SqlSugar
 {
@@ -67,7 +68,7 @@ namespace SqlSugar
         {
             get
             {
-                return @"SELECT s.Name,Convert(varchar(max),tbp.value) as Description
+                return @"SELECT s.Name,Convert(nvarchar(max),tbp.value) as Description
                             FROM sysobjects s
 					     	LEFT JOIN sys.extended_properties as tbp ON s.id=tbp.major_id and tbp.minor_id=0 AND (tbp.Name='MS_Description' OR tbp.Name is null)  WHERE s.xtype IN('U') ";
             }
@@ -179,7 +180,7 @@ namespace SqlSugar
         {
             get
             {
-                return "EXECUTE sp_addextendedproperty N'MS_Description', '{2}', N'user', N'dbo', N'table', N'{1}', N'column', N'{0}'"; ;
+                return "EXECUTE sp_addextendedproperty N'MS_Description', N'{2}', N'user', N'dbo', N'table', N'{1}', N'column', N'{0}'"; ;
             }
         }
 
@@ -213,7 +214,7 @@ namespace SqlSugar
         {
             get
             {
-                return "EXECUTE sp_addextendedproperty N'MS_Description', '{1}', N'user', N'dbo', N'table', N'{0}', NULL, NULL";
+                return "EXECUTE sp_addextendedproperty N'MS_Description', N'{1}', N'user', N'dbo', N'table', N'{0}', NULL, NULL";
             }
         }
 
@@ -319,7 +320,7 @@ namespace SqlSugar
             {
                 var schemas = GetSchemas();
                 var first =this.SqlBuilder.GetNoTranslationColumnName(tableName.Split('.').First());
-                var schemaInfo= schemas.FirstOrDefault(it=>it.EqualCase(first));
+                var schemaInfo= schemas.FirstOrDefault(it => it.EqualCase(first));
                 if (schemaInfo == null)
                 {
                     return base.IsAnyTable(tableName, isCache);
@@ -330,9 +331,16 @@ namespace SqlSugar
                     return result > 0;
                 }
             }
-            else
+            else if (isCache)
             {
                 return base.IsAnyTable(tableName, isCache);
+            }
+            else 
+            {
+                var sql = @"IF EXISTS (SELECT * FROM sys.objects
+                        WHERE type='u' AND name='"+tableName.ToSqlFilter()+@"')  
+                        SELECT 1 AS res ELSE SELECT 0 AS res;";
+                return this.Context.Ado.GetInt(sql) > 0;
             }
         }
         public List<string> GetSchemas()
@@ -412,6 +420,8 @@ namespace SqlSugar
             {
                 template = template.Replace("'{2}'", "{2}");
             }
+            tableName=SqlBuilder.GetTranslationTableName(tableName);
+            columnName = SqlBuilder.GetTranslationTableName(columnName);
             string sql = string.Format(template, tableName, columnName, defaultValue);
             this.Context.Ado.ExecuteCommand(sql);
             return true;
@@ -440,8 +450,22 @@ namespace SqlSugar
             }
             var oldDatabaseName = this.Context.Ado.Connection.Database;
             var connection = this.Context.CurrentConnectionConfig.ConnectionString;
-            Check.ExceptionEasy(String.IsNullOrEmpty(connection), "ConnectionString is not null", "连接字符串ConnectionString不能为Null");
-            connection = connection.Replace(oldDatabaseName, "master");
+            if (Regex.Split(connection, oldDatabaseName).Length > 2)
+            {
+                var name=Regex.Match(connection, @"database\=\w+|datasource\=\w+",RegexOptions.IgnoreCase).Value;
+                if (!string.IsNullOrEmpty(name))
+                {
+                    connection = connection.Replace(name, "database=master");
+                }
+                else 
+                {
+                    Check.ExceptionEasy("Failed to create the database. The database name has a keyword. Please change the name", "建库失败，库名存在关键字，请换一个名字");
+                }
+            }
+            else
+            {
+                connection = connection.Replace(oldDatabaseName, "master");
+            }
             var newDb = new SqlSugarClient(new ConnectionConfig()
             {
                 DbType = this.Context.CurrentConnectionConfig.DbType,
@@ -450,6 +474,7 @@ namespace SqlSugar
             });
             if (!GetDataBaseList(newDb).Any(it => it.Equals(databaseName, StringComparison.CurrentCultureIgnoreCase)))
             {
+                var separatorChar = UtilMethods.GetSeparatorChar();
                 var sql = CreateDataBaseSql;
                 if (databaseDirectory.HasValue())
                 {
@@ -476,8 +501,13 @@ namespace SqlSugar
                                             maxsize = 1gb,
                                             filegrowth = 10mb
                                         ); ";
+                    databaseDirectory = databaseDirectory.Replace("\\", separatorChar);
                 }
                 if (databaseName.Contains(".")) 
+                {
+                    databaseName = $"[{databaseName}]";
+                }
+                else if (Regex.IsMatch(databaseName,@"^\d.*"))
                 {
                     databaseName = $"[{databaseName}]";
                 }

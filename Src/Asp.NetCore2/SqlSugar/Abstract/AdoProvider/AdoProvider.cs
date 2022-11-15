@@ -87,6 +87,18 @@ namespace SqlSugar
                 return false;
             }
         }
+        public virtual bool IsValidConnectionNoClose()
+        {
+            try
+            {
+                this.Open();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
         public virtual void Open()
         {
             CheckConnection();
@@ -129,10 +141,10 @@ namespace SqlSugar
                 this.Transaction.Rollback();
                 this.Transaction = null;
             }
-            if (this.Connection != null && this.Connection.State != ConnectionState.Open)
-            {
-                this.Connection.Close();
-            }
+            //if (this.Connection != null && this.Connection.State != ConnectionState.Open)
+            //{
+            //    this.Connection.Close();
+            //}
             if (this.Connection != null)
             {
                 this.Connection.Dispose();
@@ -163,7 +175,7 @@ namespace SqlSugar
                 }
                 catch (Exception ex)
                 {
-                    Check.Exception(true, ErrorMessage.ConnnectionOpen, ex.Message);
+                    Check.Exception(true, ErrorMessage.ConnnectionOpen, ex.Message+$"DbType=\"{this.Context.CurrentConnectionConfig.DbType}\";ConfigId=\"{this.Context.CurrentConnectionConfig.ConfigId}\"");
                 }
             }
         }
@@ -171,6 +183,14 @@ namespace SqlSugar
         #endregion
 
         #region Transaction
+        public virtual bool IsAnyTran() 
+        {
+            return this.Transaction != null;
+        }
+        public virtual bool IsNoTran()
+        {
+            return this.Transaction == null;
+        }
         public virtual void BeginTran()
         {
             CheckConnection();
@@ -413,7 +433,7 @@ namespace SqlSugar
                 CommandType = CommandType.Text;
                 if (ErrorEvent != null)
                     ExecuteErrorEvent(sql, parameters, ex);
-                throw ex;
+                throw;
             }
         }
         public virtual DataSet GetDataSetAll(string sql, params SugarParameter[] parameters)
@@ -446,7 +466,7 @@ namespace SqlSugar
                 CommandType = CommandType.Text;
                 if (ErrorEvent != null)
                     ExecuteErrorEvent(sql, parameters, ex);
-                throw ex;
+                throw;
             }
             finally
             {
@@ -482,7 +502,7 @@ namespace SqlSugar
                 CommandType = CommandType.Text;
                 if (ErrorEvent != null)
                     ExecuteErrorEvent(sql, parameters, ex);
-                throw ex;
+                throw;
             }
             finally
             {
@@ -523,7 +543,7 @@ namespace SqlSugar
                 CommandType = CommandType.Text;
                 if (ErrorEvent != null)
                     ExecuteErrorEvent(sql, parameters, ex);
-                throw ex;
+                throw;
             }
             finally
             {
@@ -568,7 +588,7 @@ namespace SqlSugar
                 CommandType = CommandType.Text;
                 if (ErrorEvent != null)
                     ExecuteErrorEvent(sql, parameters, ex);
-                throw ex;
+                throw;
             }
         }
         public virtual async Task<object> GetScalarAsync(string sql, params SugarParameter[] parameters)
@@ -604,7 +624,7 @@ namespace SqlSugar
                 CommandType = CommandType.Text;
                 if (ErrorEvent != null)
                     ExecuteErrorEvent(sql, parameters, ex);
-                throw ex;
+                throw;
             }
             finally
             {
@@ -1290,7 +1310,7 @@ namespace SqlSugar
 
         #region  Helper
 
-        private void SugarCatch(Exception ex, string sql, SugarParameter[] parameters)
+        protected virtual void SugarCatch(Exception ex, string sql, SugarParameter[] parameters)
         {
             if (sql != null && sql.Contains("{year}{month}{day}"))
             {
@@ -1515,6 +1535,12 @@ namespace SqlSugar
                             }
                             item.Value = DBNull.Value;
                         }
+                    }
+                    if (item.ParameterName != null && item.ParameterName.Contains(" ")) 
+                    {
+                        var oldName = item.ParameterName;
+                        item.ParameterName = item.ParameterName.Replace(" ", "");
+                        sql = sql.Replace(oldName, item.ParameterName);
                     }
                 }
             }

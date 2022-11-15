@@ -18,7 +18,17 @@ namespace SqlSugar
                 return string.Join(",", array.Where(c => c != null).Select(it => it.ToSqlValue()));
             }
         }
-
+        public static string ToJoinSqlInValsN<T>(this T[] array)
+        {
+            if (array == null || array.Length == 0)
+            {
+                return ToSqlValue(string.Empty);
+            }
+            else
+            {
+                return string.Join(",", array.Where(c => c != null).Select(it => "N"+it.ToSqlValue()));
+            }
+        }
         public static string ToSqlValue(this object value)
         {
             if (value!=null&& UtilConstants.NumericalTypes.Contains(value.GetType()))
@@ -42,7 +52,9 @@ namespace SqlSugar
         {
             if (!value.IsNullOrEmpty())
             {
+                var oldLength=value.Length;
                 value = value.Replace("'", "''");
+                if (oldLength!=value.Length&& value.IndexOf(")")>0&&value.IndexOf(@"\''")>0) value=value.Replace("\\","\\\\");
             }
             return value;
         }
@@ -66,6 +78,17 @@ namespace SqlSugar
                 }
             }
             return value;
+        }
+        public static string ToCheckRegexW(this string value) 
+        {
+            if (Regex.IsMatch(value,@"^\w+$"))
+            {
+                return value;
+            }
+            else 
+            {
+                throw new Exception($"ToCheckRegexW {value} format error ");
+            }
         }
         internal static string ToLower(this string value ,bool isAutoToLower)
         {

@@ -26,7 +26,7 @@ namespace SqlSugar
                 var pkColumn = this._Context.EntityMaintenance.GetEntityInfo<T>().Columns.FirstOrDefault(it => it.IsPrimarykey);
                 this._ParentPkColumn = pkColumn;
             }
-
+            IsFirst = false;
         }
 
         private InsertNavProvider<Root, TChild> GetResult<TChild>() where TChild : class, new()
@@ -58,7 +58,17 @@ namespace SqlSugar
         {
             foreach (var item in datas)
             {
-                this._Context.Insertable(item).ExecuteCommandIdentityIntoEntity();
+                if (IsFirst&&_RootOptions!=null)
+                {
+                    this._Context.Insertable(item)
+                        .IgnoreColumns(_RootOptions.IgnoreColumns)
+                        .InsertColumns(_RootOptions.InsertColumns)
+                        .ExecuteCommandIdentityIntoEntity();
+                }
+                else
+                {
+                    this._Context.Insertable(item).ExecuteCommandIdentityIntoEntity();
+                }
             }
         }
 
@@ -71,6 +81,11 @@ namespace SqlSugar
             }
             return pkColumn;
         }
+        private EntityColumnInfo GetPkColumnByNav2(EntityInfo entity, EntityColumnInfo nav)
+        {
+            var pkColumn = entity.Columns.FirstOrDefault(it => it.IsPrimarykey == true);
+            return pkColumn;
+        }
         private EntityColumnInfo GetFKColumnByNav(EntityInfo entity, EntityColumnInfo nav)
         {
             var fkColumn = entity.Columns.FirstOrDefault(it => it.PropertyName == nav.Navigat.Name);
@@ -79,11 +94,38 @@ namespace SqlSugar
         private void InsertDatas<TChild>(List<TChild> children, EntityColumnInfo pkColumn, EntityColumnInfo NavColumn=null) where TChild : class, new()
         {
             children = children.Distinct().ToList();
+            if (pkColumn == null) 
+            {
+                Check.ExceptionEasy($"{typeof(TChild).Name} need primary key ", $"{typeof(TChild).Name}需要主键");
+            }
             var x = this._Context.Storageable(children).WhereColumns(new string[] { pkColumn.PropertyName }).ToStorage();
             var insertData = children = x.InsertList.Select(it => it.Item).ToList();
+            var IsNoExistsNoInsert = _navOptions != null && _navOptions.OneToManyIfExistsNoInsert == true;
+            if (_NavigateType == NavigateType.OneToMany && IsFirst == false && IsNoExistsNoInsert == false)
+            {
+                var updateData = x.UpdateList.Select(it => it.Item).ToList();
+                ClearPk(updateData, pkColumn);
+                insertData.AddRange(updateData);
+            }
+            else if (_NavigateType == NavigateType.OneToMany && IsNoExistsNoInsert == true) 
+            {
+                children = new List<TChild>();
+                children.AddRange(x.InsertList.Select(it => it.Item).ToList());
+                var updateData = x.UpdateList.Select(it => it.Item).ToList();
+                children.AddRange(updateData);
+            }
             Check.ExceptionEasy(pkColumn==null&&NavColumn==null,$"The entity is invalid",$"实体错误无法使用导航");
             InitData(pkColumn, insertData);
             this._ParentList = children.Cast<object>().ToList();
+        }
+
+        private  void ClearPk<TChild>(List<TChild> updateData, EntityColumnInfo pkColumn) where TChild : class, new()
+        {
+            foreach (var child in updateData)
+            {
+                var defaultValue =UtilMethods.DefaultForType(pkColumn.PropertyInfo.PropertyType);
+                pkColumn.PropertyInfo.SetValue(child, defaultValue);
+            }
         }
 
         private void InitData<TChild>(EntityColumnInfo pkColumn, List<TChild> insertData) where TChild : class, new()
@@ -119,7 +161,17 @@ namespace SqlSugar
                     pkColumn.PropertyInfo.SetValue(child, value());
                 }
             }
-            this._Context.Insertable(insertData).ExecuteCommand();
+            if (IsFirst && _RootOptions != null)
+            {
+                this._Context.Insertable(insertData)
+                    .IgnoreColumns(_RootOptions.IgnoreColumns)
+                    .InsertColumns(_RootOptions.InsertColumns)
+                    .ExecuteCommand();
+            }
+            else
+            {
+                this._Context.Insertable(insertData).ExecuteCommand();
+            }
         }
         private void SetError<TChild>(EntityColumnInfo pkColumn, List<TChild> insertData) where TChild : class, new()
         {
@@ -128,10 +180,20 @@ namespace SqlSugar
                 if (IsDefaultValue(pkColumn.PropertyInfo.GetValue(child)))
                 {
                     var name = pkColumn.EntityName + " " + pkColumn.DbColumnName;
-                    Check.ExceptionEasy($"The field {name} is not an autoassignment type and requires an assignment", $"字段{name}不是可自动赋值类型，需要赋值 , 可赋值类型有 自增、long、Guid、string");
+                    Check.ExceptionEasy($"The field {name} is not an autoassignment type and requires an assignment", $"字段{name}不是可自动赋值类型需要赋值（并且不能是已存在值） , 可赋值类型有 自增、long、Guid、string");
                 }
             }
-            this._Context.Insertable(insertData).ExecuteCommand();
+            if (IsFirst && _RootOptions != null)
+            {
+                this._Context.Insertable(insertData)
+                    .IgnoreColumns(_RootOptions.IgnoreColumns)
+                    .InsertColumns(_RootOptions.InsertColumns)
+                    .ExecuteCommand();
+            }
+            else
+            {
+                this._Context.Insertable(insertData).ExecuteCommand();
+            }
         }
     }
 }

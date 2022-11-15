@@ -10,10 +10,12 @@ namespace SqlSugar
     public partial class CodeFirstProvider : ICodeFirst
     {
         #region Properties
+        internal static object LockObject = new object();
         public virtual SqlSugarProvider Context { get; set; }
         protected bool IsBackupTable { get; set; }
         protected int MaxBackupDataRows { get; set; }
         protected virtual int DefultLength { get; set; }
+        protected Dictionary<Type, string> MappingTables = new Dictionary<Type, string>();
         public CodeFirstProvider()
         {
             if (DefultLength == 0)
@@ -46,29 +48,36 @@ namespace SqlSugar
 
         public virtual void InitTables(Type entityType)
         {
-
-            //this.Context.Utilities.RemoveCacheAll();
-            this.Context.InitMappingInfoNoCache(entityType);
-            if (!this.Context.DbMaintenance.IsAnySystemTablePermissions())
+            //Prevent concurrent requests if used in your program
+            lock (CodeFirstProvider.LockObject)
             {
-                Check.Exception(true, "Dbfirst and  Codefirst requires system table permissions");
-            }
-            Check.Exception(this.Context.IsSystemTablesConfig, "Please set SqlSugarClent Parameter ConnectionConfig.InitKeyType=InitKeyType.Attribute ");
+                MappingTableList oldTableList = CopyMappingTalbe();
+                //this.Context.Utilities.RemoveCacheAll();
+                this.Context.InitMappingInfoNoCache(entityType);
+                if (!this.Context.DbMaintenance.IsAnySystemTablePermissions())
+                {
+                    Check.Exception(true, "Dbfirst and  Codefirst requires system table permissions");
+                }
+                Check.Exception(this.Context.IsSystemTablesConfig, "Please set SqlSugarClent Parameter ConnectionConfig.InitKeyType=InitKeyType.Attribute ");
 
-            if (this.Context.Ado.Transaction == null)
-            {
-                var executeResult = Context.Ado.UseTran(() =>
+                if (this.Context.Ado.Transaction == null)
+                {
+                    var executeResult = Context.Ado.UseTran(() =>
+                    {
+                        Execute(entityType);
+                    });
+                    Check.Exception(!executeResult.IsSuccess, executeResult.ErrorMessage);
+                }
+                else
                 {
                     Execute(entityType);
-                });
-                Check.Exception(!executeResult.IsSuccess, executeResult.ErrorMessage);
-            }
-            else 
-            {
-                Execute(entityType);
+                }
+
+                RestMappingTables(oldTableList);
             }
 
         }
+
         public void InitTables<T>()
         {
             InitTables(typeof(T));
@@ -107,6 +116,23 @@ namespace SqlSugar
                 }
             }
         }
+        public ICodeFirst As(Type type, string newTableName) 
+        {
+            if (!MappingTables.ContainsKey(type)) 
+            {
+                MappingTables.Add(type,newTableName);
+            }
+            else  
+            {
+                MappingTables[type]= newTableName;
+            }
+            return this;
+        }
+        public ICodeFirst As<T>(string newTableName)
+        {
+            return As(typeof(T),newTableName);
+        }
+
         public virtual void InitTables(string entitiesNamespace)
         {
             var types = Assembly.Load(entitiesNamespace).GetTypes();
@@ -154,7 +180,10 @@ namespace SqlSugar
             db.MappingTables.Add(type.Name, tempTableName);
             try
             {
-                db.CodeFirst.InitTables(type);
+
+                var codeFirst=db.CodeFirst;
+                codeFirst.SetStringDefaultLength(this.DefultLength);
+                codeFirst.InitTables(type);
                 var tables = db.DbMaintenance.GetTableInfoList(false);
                 var oldTableInfo = tables.FirstOrDefault(it=>it.Name.EqualCase(oldTableName));
                 var newTableInfo = tables.FirstOrDefault(it => it.Name.EqualCase(oldTableName));
@@ -180,6 +209,11 @@ namespace SqlSugar
         protected virtual void Execute(Type entityType)
         {
             var entityInfo = this.Context.EntityMaintenance.GetEntityInfoNoCache(entityType);
+            if (this.MappingTables.ContainsKey(entityType)) 
+            {
+                entityInfo.DbTableName = this.MappingTables[entityType];
+                this.Context.MappingTables.Add(entityInfo.EntityName, entityInfo.DbTableName);
+            }
             if (this.DefultLength > 0)
             {
                 foreach (var item in entityInfo.Columns)
@@ -230,6 +264,29 @@ namespace SqlSugar
                     {
                         item.IndexName = item.IndexName + entityInfo.DbTableName;
                     }
+                    if (this.Context.CurrentConnectionConfig.IndexSuffix.HasValue()) 
+                    {
+                        item.IndexName = (this.Context.CurrentConnectionConfig.IndexSuffix+ item.IndexName);
+                    }
+                    var include = "";
+                    if (item.IndexName != null)
+                    {
+                        var database = "{db}";
+                        if (item.IndexName.Contains(database))
+                        {
+                            item.IndexName = item.IndexName.Replace(database, this.Context.Ado.Connection.Database);
+                        }
+                        var table = "{table}";
+                        if (item.IndexName.Contains(table))
+                        {
+                            item.IndexName = item.IndexName.Replace(table, entityInfo.DbTableName);
+                        }
+                        if (item.IndexName.ToLower().Contains("{include:")) 
+                        {
+                            include=Regex.Match( item.IndexName,@"\{include\:.+$").Value;
+                            item.IndexName = item.IndexName.Replace(include, "");
+                        }
+                    }
                     if (!this.Context.DbMaintenance.IsAnyIndex(item.IndexName))
                     {
                         var querybulder = InstanceFactory.GetSqlbuilder(this.Context.CurrentConnectionConfig);
@@ -245,7 +302,7 @@ namespace SqlSugar
                                 return new KeyValuePair<string, OrderByType>(dbColumn.DbColumnName, it.Value);
                             })
                             .Select(it => querybulder.GetTranslationColumnName(it.Key) + " " + it.Value).ToArray();
-                        this.Context.DbMaintenance.CreateIndex(entityInfo.DbTableName, fileds, item.IndexName, item.IsUnique);
+                        this.Context.DbMaintenance.CreateIndex(entityInfo.DbTableName, fileds, item.IndexName+ include, item.IsUnique);
                     }
                 }
             }
@@ -407,6 +464,28 @@ namespace SqlSugar
         #endregion
 
         #region Helper methods
+        private void RestMappingTables(MappingTableList oldTableList)
+        {
+            this.Context.MappingTables.Clear();
+            foreach (var table in oldTableList)
+            {
+                this.Context.MappingTables.Add(table.EntityName, table.DbTableName);
+            }
+        }
+        private MappingTableList CopyMappingTalbe()
+        {
+            MappingTableList oldTableList = new MappingTableList();
+            if (this.Context.MappingTables == null) 
+            {
+                this.Context.MappingTables = new MappingTableList();
+            }
+            foreach (var table in this.Context.MappingTables)
+            {
+                oldTableList.Add(table.EntityName, table.DbTableName);
+            }
+            return oldTableList;
+        }
+
         public virtual string GetCreateTableString(EntityInfo entityInfo)
         {
             StringBuilder result = new StringBuilder();
@@ -502,11 +581,19 @@ namespace SqlSugar
             {
                 return false;
             }
+            if (properyTypeName?.ToLower() == "int" && dataType?.ToLower() == "int32")
+            {
+                return false;
+            }
             if (properyTypeName?.ToLower() == "date" && dataType?.ToLower() == "datetime")
             {
                 return false;
             }
             if (properyTypeName?.ToLower() == "bigint" && dataType?.ToLower() == "int64")
+            {
+                return false;
+            }
+            if (properyTypeName?.ToLower() == "blob" && dataType?.ToLower() == "byte[]")
             {
                 return false;
             }
@@ -519,7 +606,7 @@ namespace SqlSugar
                 return properyTypeName.ToLower() != dataType.ToLower();
             }
         }
-        private static string GetType(string name)
+        protected  string GetType(string name)
         {
             if (name.IsContainsIn("UInt32", "UInt16", "UInt64"))
             {

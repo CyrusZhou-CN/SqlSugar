@@ -51,7 +51,9 @@ namespace OrmTest
             var q2 = db.Queryable<Order>().Take(2);
             var test05 = db.UnionAll(q1, q2).ToList();
             var test06 = db.Queryable<Order>().ToList();
- 
+            var getList = db.Queryable<Order>().GroupBy(z => z.Id).Select(it => new {
+                id = SqlFunc.AggregateCount(it.Id)
+            }).MergeTable().Where(it => it.id > 1).ToList();
             if (db.DbMaintenance.IsAnyTable("users", false))
             {
                 db.DbMaintenance.DropTable("users");
@@ -164,9 +166,9 @@ namespace OrmTest
             Console.WriteLine("#### No Entity Start ####");
             var db = GetInstance();
 
-            var list = db.Queryable<dynamic>().AS("order").Where("id=id", new { id = 1 }).ToList();
+            var list = db.Queryable<dynamic>().AS("order_1").Where("id=id", new { id = 1 }).ToList();
 
-            var list2 = db.Queryable<dynamic>("o").AS("order").AddJoinInfo("OrderDetail", "i", "o.id=i.OrderId").Where("id=id", new { id = 1 }).Select("o.*").ToList();
+            var list2 = db.Queryable<dynamic>("o").AS("order_1").AddJoinInfo("OrderDetail_1", "i", "o.id=i.OrderId").Where("id=id", new { id = 1 }).Select("o.*").ToList();
             Console.WriteLine("#### No Entity End ####");
         }
 

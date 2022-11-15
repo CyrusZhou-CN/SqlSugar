@@ -269,12 +269,31 @@ namespace SqlSugar.MySqlConnector
         {
             get
             {
-                return "SELECT count(*) FROM information_schema.statistics WHERE index_name = '{0}'";
+                return "SELECT count(*) FROM information_schema.statistics WHERE index_name = '{0}' and index_schema = '{1}'";
             }
         }
         #endregion
 
         #region Methods
+        public override bool IsAnyTable(string tableName, bool isCache = true)
+        {
+            try
+            {
+                return base.IsAnyTable(tableName, isCache);
+            }
+            catch (Exception ex)
+            {
+                if (SugarCompatible.IsFramework && ex.Message == "Invalid attempt to Read when reader is closed.")
+                {
+                    Check.ExceptionEasy($"To upgrade the MySql.Data. Error:{ex.Message}", $" 请先升级MySql.Data 。 详细错误:{ex.Message}");
+                    return true;
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
         public override bool IsAnyColumnRemark(string columnName, string tableName)
         {
             var isAny=this.Context.DbMaintenance.GetColumnInfosByTableName(tableName, false)
@@ -299,6 +318,12 @@ namespace SqlSugar.MySqlConnector
         /// <returns></returns>
         public override bool CreateDatabase(string databaseName, string databaseDirectory = null)
         {
+
+            if (this.Context.Ado.IsValidConnection()) 
+            {
+                return true;
+            }
+
             if (databaseDirectory != null)
             {
                 if (!FileHelper.IsExistDirectory(databaseDirectory))
@@ -308,7 +333,9 @@ namespace SqlSugar.MySqlConnector
             }
             var oldDatabaseName = this.Context.Ado.Connection.Database;
             var connection = this.Context.CurrentConnectionConfig.ConnectionString;
-            Check.Exception(Regex.Split(connection,oldDatabaseName).Length > 2, "The user name and password cannot be the same as the database name ");
+            Check.ExceptionEasy(Regex.Split(connection,oldDatabaseName).Length > 2
+                , "The user name and password cannot be the same as the database name ",
+                " 创建数据库失败, 请换一个库名，库名不能 password 或者 username 有重叠 ");
             connection = connection.Replace(oldDatabaseName, "mysql");
             var newDb = new SqlSugarClient(new ConnectionConfig()
             {
@@ -384,6 +411,10 @@ namespace SqlSugar.MySqlConnector
                 string primaryKey = null;
                 string identity = item.IsIdentity ? this.CreateTableIdentity : null;
                 string addItem = string.Format(this.CreateTableColumn, this.SqlBuilder.GetTranslationColumnName(columnName), dataType, dataSize, nullType, primaryKey, identity);
+                if (!string.IsNullOrEmpty(item.ColumnDescription))
+                {
+                    addItem += " COMMENT '"+item.ColumnDescription.ToSqlFilter()+"' ";
+                }
                 columnArray.Add(addItem);
             }
             string tableString = string.Format(this.CreateTableSql, this.SqlBuilder.GetTranslationTableName(tableName), string.Join(",\r\n", columnArray));
@@ -452,18 +483,18 @@ namespace SqlSugar.MySqlConnector
             {
                 defaultValue = "";
             }
-            if (defaultValue.ToLower().IsIn("now()", "current_timestamp")|| defaultValue.ToLower().Contains("current_timestamp"))
+            if (defaultValue.ToLower().IsIn("now()", "current_timestamp") || defaultValue.ToLower().Contains("current_timestamp"))
             {
-                string template = "ALTER table {0} CHANGE COLUMN {1} {1} {3} default {2}";
+                string template = "ALTER table {0} CHANGE COLUMN {1} {1} {3} {4} default {2} COMMENT '{5}'";
                 var dbColumnInfo = this.Context.DbMaintenance.GetColumnInfosByTableName(tableName).First(it => it.DbColumnName.Equals(columnName, StringComparison.CurrentCultureIgnoreCase));
                 var value = Regex.Match(defaultValue, @"\(\d\)$").Value;
-                string sql = string.Format(template, tableName, columnName, defaultValue, dbColumnInfo.DataType+ value);
+                string sql = string.Format(template, tableName, columnName, defaultValue, dbColumnInfo.DataType + value, dbColumnInfo.IsNullable ? " NULL " : " NOT NULL ", dbColumnInfo.ColumnDescription);
                 this.Context.Ado.ExecuteCommand(sql);
                 return true;
             }
-            else if (defaultValue=="0"|| defaultValue == "1")
+            else if (defaultValue == "0" || defaultValue == "1")
             {
-                string sql = string.Format(AddDefaultValueSql.Replace("'",""), tableName, columnName, defaultValue);
+                string sql = string.Format(AddDefaultValueSql.Replace("'", ""), tableName, columnName, defaultValue);
                 this.Context.Ado.ExecuteCommand(sql);
                 return true;
             }

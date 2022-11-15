@@ -160,55 +160,55 @@ namespace SqlSugar
                   var result = this.Context.EntityMaintenance.GetEntityInfo(type);
                   return result;
               });
-            var copyObj = CopyEntityInfo(entityInfo);
-            InitMappingInfo(copyObj);
+            //var copyObj = CopyEntityInfo(entityInfo);
+            InitMappingInfo(entityInfo);
         }
         public void InitMappingInfoNoCache(Type type)
         {
             var entityInfo = this.Context.EntityMaintenance.GetEntityInfoNoCache(type);
             InitMappingInfo(entityInfo);
         }
-        private EntityInfo CopyEntityInfo(EntityInfo entityInfo)
-        {
-            EntityInfo result = new EntityInfo()
-            {
-                DbTableName = entityInfo.DbTableName,
-                EntityName = entityInfo.EntityName,
-                Type = entityInfo.Type
-            };
-            List<EntityColumnInfo> columns = new List<EntityColumnInfo>();
-            if (entityInfo.Columns.HasValue())
-            {
-                foreach (var item in entityInfo.Columns)
-                {
-                    EntityColumnInfo column = new EntityColumnInfo()
-                    {
-                        ColumnDescription = item.ColumnDescription,
-                        DataType = item.DataType,
-                        DbColumnName = item.DbColumnName,
-                        DbTableName = item.DbTableName,
-                        DecimalDigits = item.DecimalDigits,
-                        DefaultValue = item.DefaultValue,
-                        EntityName = item.EntityName,
-                        IsIdentity = item.IsIdentity,
-                        IsIgnore = item.IsIgnore,
-                        IsNullable = item.IsNullable,
-                        IsOnlyIgnoreInsert = item.IsOnlyIgnoreInsert,
-                        IsPrimarykey = item.IsPrimarykey,
-                        Length = item.Length,
-                        OldDbColumnName = item.OldDbColumnName,
-                        OracleSequenceName = item.OracleSequenceName,
-                        PropertyInfo = item.PropertyInfo,
-                        PropertyName = item.PropertyName,
-                        IsArray=item.IsArray,
-                        IsJson=item.IsJson
-                    };
-                    columns.Add(item);
-                }
-            }
-            result.Columns = columns;
-            return result;
-        }
+        //private EntityInfo CopyEntityInfo(EntityInfo entityInfo)
+        //{
+        //    EntityInfo result = new EntityInfo()
+        //    {
+        //        DbTableName = entityInfo.DbTableName,
+        //        EntityName = entityInfo.EntityName,
+        //        Type = entityInfo.Type
+        //    };
+        //    List<EntityColumnInfo> columns = new List<EntityColumnInfo>();
+        //    if (entityInfo.Columns.HasValue())
+        //    {
+        //        foreach (var item in entityInfo.Columns)
+        //        {
+        //            EntityColumnInfo column = new EntityColumnInfo()
+        //            {
+        //                ColumnDescription = item.ColumnDescription,
+        //                DataType = item.DataType,
+        //                DbColumnName = item.DbColumnName,
+        //                DbTableName = item.DbTableName,
+        //                DecimalDigits = item.DecimalDigits,
+        //                DefaultValue = item.DefaultValue,
+        //                EntityName = item.EntityName,
+        //                IsIdentity = item.IsIdentity,
+        //                IsIgnore = item.IsIgnore,
+        //                IsNullable = item.IsNullable,
+        //                IsOnlyIgnoreInsert = item.IsOnlyIgnoreInsert,
+        //                IsPrimarykey = item.IsPrimarykey,
+        //                Length = item.Length,
+        //                OldDbColumnName = item.OldDbColumnName,
+        //                OracleSequenceName = item.OracleSequenceName,
+        //                PropertyInfo = item.PropertyInfo,
+        //                PropertyName = item.PropertyName,
+        //                IsArray=item.IsArray,
+        //                IsJson=item.IsJson
+        //            };
+        //            columns.Add(item);
+        //        }
+        //    }
+        //    result.Columns = columns;
+        //    return result;
+        //}
 
         private void InitMappingInfo(EntityInfo entityInfo)
         {
@@ -342,6 +342,9 @@ namespace SqlSugar
             queryable.SqlBuilder.QueryBuilder.EasyJoinInfos = this.GetEasyJoinInfo(joinExpression, ref shortName, queryable.SqlBuilder, types);
             queryable.SqlBuilder.QueryBuilder.TableShortName = shortName;
             queryable.SqlBuilder.QueryBuilder.JoinExpression = joinExpression;
+            var isNoPgAuto = this.Context.CurrentConnectionConfig.MoreSettings?.PgSqlIsAutoToLower == false;
+            if (isNoPgAuto) 
+                queryable.SqlBuilder.QueryBuilder.TableShortName = queryable.SqlBuilder.GetTranslationColumnName(shortName);
         }
         #endregion
 
@@ -384,6 +387,9 @@ namespace SqlSugar
                 case DbType.OpenGauss:
                     DependencyManagement.TryOpenGauss();
                     break;
+                case DbType.HG:
+                    Check.ExceptionEasy("Use DbType.PostgreSQL", "瀚高数据库请使用DbType.PostgreSQL");
+                    break;
                 case DbType.Kdbndp:
                     DependencyManagement.TryKdbndb();
                     break;
@@ -405,7 +411,19 @@ namespace SqlSugar
                     Check.Exception(InstanceFactory.CustomDllName.IsNullOrEmpty(), "DbType.Custom: InstanceFactory.CustomDllName is not null  ");
                     break;
                 case DbType.QuestDB:
-                    Check.Exception(SugarCompatible.IsFramework, "QuestDB only support .net core");
+                    DependencyManagement.TryPostgreSQL();
+                    break;
+                case DbType.ClickHouse:
+                    Check.Exception(SugarCompatible.IsFramework, "ClickHouse only support .net core");
+                    InstanceFactory.CustomDllName = SugarCompatible.IsFramework ? "SqlSugar.ClickHouse" : "SqlSugar.ClickHouseCore";
+                    break;
+                case DbType.GBase:
+                    Check.Exception(SugarCompatible.IsFramework, "GBase only support .net core");
+                    InstanceFactory.CustomDllName = SugarCompatible.IsFramework ? "SqlSugar.GBase" : "SqlSugar.GBaseCore";
+                    break;
+                case DbType.Odbc:
+                    Check.Exception(SugarCompatible.IsFramework, "Odbc only support .net core");
+                    InstanceFactory.CustomDllName = SugarCompatible.IsFramework ? "SqlSugar.Odbc" : "SqlSugar.OdbcCore";
                     break;
                 default:
                     throw new Exception("ConnectionConfig.DbType is null");
@@ -449,17 +467,22 @@ namespace SqlSugar
                 {
                     joinInfo.TableName = entityType.Name;
                 }
+                var isNoPgAuto = this.Context.CurrentConnectionConfig.MoreSettings?.PgSqlIsAutoToLower == false;
                 if (isFirst)
                 {
                     var firstItem = lambdaParameters.First();
                     lambdaParameters.Remove(firstItem);
                     shortName = firstItem.Name;
+                    if (isNoPgAuto) 
+                        shortName = sqlBuilder.GetTranslationColumnName(shortName);
                 }
                 var joinString = joinArray[i * 2 - 2];
                 joinInfo.ShortName = lambdaParameters[i - 1].Name;
                 joinInfo.JoinType = (JoinType)Enum.Parse(typeof(JoinType), joinString);
                 joinInfo.JoinWhere = joinArray[i * 2 - 1];
                 joinInfo.JoinIndex = i;
+                if (isNoPgAuto)
+                    joinInfo.ShortName = sqlBuilder.GetTranslationColumnName(joinInfo.ShortName);
                 result.Add((joinInfo));
             }
             expressionContext.Clear();
@@ -502,10 +525,18 @@ namespace SqlSugar
             Dictionary<string, string> result = new Dictionary<string, string>();
             var lambdaParameters = ((LambdaExpression)joinExpression).Parameters.ToList();
             shortName = lambdaParameters.First().Name;
+            var isNoPgAuto = this.Context.CurrentConnectionConfig.MoreSettings?.PgSqlIsAutoToLower == false;
             var index = 1;
             foreach (var item in entityTypeArray)
             {
-                result.Add(UtilConstants.Space + lambdaParameters[index].Name, item.Name);
+                if (isNoPgAuto)
+                {
+                    result.Add(UtilConstants.Space +builder.GetTranslationColumnName(lambdaParameters[index].Name), item.Name);
+                }
+                else
+                {
+                    result.Add(UtilConstants.Space + lambdaParameters[index].Name, item.Name);
+                }
                 ++index;
             }
             return result;

@@ -13,12 +13,27 @@ namespace SqlSugar
             this.QueryBuilder.Parameters.AddRange(sqlobj.Value);
             return this.AddJoinInfo(tableName, shortName, sqlobj.Key, type);
         }
+        public ISugarQueryable<T> AddJoinInfo(List<JoinInfoParameter> joinInfoParameters) 
+        {
+            if (joinInfoParameters != null)
+            {
+                foreach (var item in joinInfoParameters)
+                {
+                    this.AddJoinInfo(item.TableName,item.ShortName,item.Models,item.Type);
+                }
+            }
+            return this;
+        }
         public ISugarQueryable<T> AS(string tableName, string shortName) 
         {
             return this.AS($"{this.SqlBuilder.GetTranslationTableName(tableName)} {shortName}");
         }
         public ISugarQueryable<T> OrderBy(List<OrderByModel> models) 
         {
+            if (models == null || models.Count == 0) 
+            {
+                return this;
+            }
             var orderObj = this.SqlBuilder.OrderByModelToSql(models);
             this.OrderBy(orderObj.Key);
             this.QueryBuilder.Parameters.AddRange(orderObj.Value);
@@ -26,6 +41,10 @@ namespace SqlSugar
         }
         public ISugarQueryable<T> GroupBy(List<GroupByModel> models)
         {
+            if (models == null || models.Count == 0)
+            {
+                return this;
+            }
             var orderObj = this.SqlBuilder.GroupByModelToSql(models);
             this.GroupBy(orderObj.Key);
             this.QueryBuilder.Parameters.AddRange(orderObj.Value);
@@ -37,6 +56,22 @@ namespace SqlSugar
             this.Select(orderObj.Key);
             this.QueryBuilder.Parameters.AddRange(orderObj.Value);
             return this;
+        }
+
+        public ISugarQueryable<T> Select(List<SelectModel> models, AsNameFormatType type) 
+        {
+            if (type == AsNameFormatType.NoConvert) 
+            {
+                foreach (var model in models)
+                {
+                    if (!string.IsNullOrEmpty(model.AsName))
+                    {
+                        model.AsName = (UtilConstants.ReplaceKey + SqlBuilder.SqlTranslationLeft + model.AsName + SqlBuilder.SqlTranslationRight);
+                        model.AsName.ToCheckField();
+                    }
+                }
+            }
+            return Select(models);
         }
         public ISugarQueryable<T> Having(IFuncModel model)
         {

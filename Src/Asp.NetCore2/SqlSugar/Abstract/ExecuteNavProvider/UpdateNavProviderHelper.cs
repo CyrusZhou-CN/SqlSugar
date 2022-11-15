@@ -60,6 +60,11 @@ namespace SqlSugar
             }
             return pkColumn;
         }
+        private EntityColumnInfo GetPkColumnByNav2(EntityInfo entity, EntityColumnInfo nav)
+        {
+            var pkColumn = entity.Columns.FirstOrDefault(it => it.IsPrimarykey == true);
+            return pkColumn;
+        }
         private EntityColumnInfo GetFKColumnByNav(EntityInfo entity, EntityColumnInfo nav)
         {
             var fkColumn = entity.Columns.FirstOrDefault(it => it.PropertyName == nav.Navigat.Name);
@@ -72,7 +77,19 @@ namespace SqlSugar
             var insertData  = x.InsertList.Select(it => it.Item).ToList();
             var updateData  = x.UpdateList.Select(it => it.Item).ToList();
             Check.ExceptionEasy(pkColumn == null && NavColumn == null, $"The entity is invalid", $"实体错误无法使用导航");
-            x.AsUpdateable.ExecuteCommand();
+            if (_Options != null && _Options.CurrentFunc != null)
+            {
+                var updateable = x.AsUpdateable;
+                var exp = _Options.CurrentFunc as Expression<Action<IUpdateable<TChild>>>;
+                Check.ExceptionEasy(exp == null, "UpdateOptions.CurrentFunc is error", "UpdateOptions.CurrentFunc参数设置错误");
+                var com = exp.Compile();
+                com(updateable);
+                updateable.ExecuteCommand();
+            }
+            else
+            {
+                x.AsUpdateable.ExecuteCommand();
+            }
             InitData(pkColumn, insertData);
             if (_NavigateType == NavigateType.OneToMany)
             {

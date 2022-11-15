@@ -156,7 +156,17 @@ namespace SqlSugar
             }
             if (IsNoUpdateDefaultValue)
             {
-                DbColumnInfoList = DbColumnInfoList.Where(it => it.Value.ObjToString() !=UtilMethods.DefaultForType(it.PropertyType).ObjToString()).ToList();
+                DbColumnInfoList = DbColumnInfoList.Where(it => {
+                    if (it.Value.ObjToString()=="0" && it.PropertyType.IsEnum)
+                    {
+                        return it.Value.ObjToLong() != UtilMethods.DefaultForType(it.PropertyType).ObjToLong();
+                    }
+                    else
+                    {
+                      return  it.Value.ObjToString() != UtilMethods.DefaultForType(it.PropertyType).ObjToString();
+                    }
+
+                    }).ToList();
             }
             var groupList = DbColumnInfoList.GroupBy(it => it.TableId).ToList();
             var isSingle = groupList.Count() == 1;
@@ -343,18 +353,38 @@ namespace SqlSugar
                 }
                 else if (type == UtilConstants.DateTimeOffsetType)
                 {
-                    var date = UtilMethods.ConvertFromDateTimeOffset((DateTimeOffset)value);
-                    return "'" + date.ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
+                    return FormatDateTimeOffset(value);
                 }
                 else if (type == UtilConstants.StringType || type == UtilConstants.ObjType)
                 {
                     return "N'" + value.ToString().ToSqlFilter() + "'";
+                }
+                else if (type==UtilConstants.IntType||type==UtilConstants.LongType)
+                {
+                    return value;
+                }
+                else if (UtilMethods.IsNumber(type.Name)) 
+                {
+                    if (value.ObjToString().Contains(","))
+                    {
+                        return $"'{value}'";
+                    }
+                    else
+                    {
+                        return value;
+                    }
                 }
                 else
                 {
                     return "N'" + value.ToString() + "'";
                 }
             }
+        }
+
+        public virtual string FormatDateTimeOffset(object value)
+        {
+            var date = UtilMethods.ConvertFromDateTimeOffset((DateTimeOffset)value);
+            return "'" + date.ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
         }
     }
 }

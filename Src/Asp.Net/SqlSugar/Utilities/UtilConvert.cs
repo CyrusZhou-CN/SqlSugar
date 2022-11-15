@@ -13,9 +13,24 @@ namespace SqlSugar
             if (thisValue == null) return 0;
             if (thisValue is Enum)
             {
-                return (int)thisValue;
+                return Convert.ToInt32(thisValue);
             }
             if (thisValue != null && thisValue != DBNull.Value && int.TryParse(thisValue.ToString(), out reval))
+            {
+                return reval;
+            }
+            return reval;
+        }
+
+        public static long ObjToLong(this object thisValue)
+        {
+            long reval = 0;
+            if (thisValue == null) return 0;
+            if (thisValue is Enum)
+            {
+                return Convert.ToInt64(thisValue);
+            }
+            if (thisValue != null && thisValue != DBNull.Value && long.TryParse(thisValue.ToString(), out reval))
             {
                 return reval;
             }
@@ -81,6 +96,11 @@ namespace SqlSugar
         public static string ObjToString(this object thisValue)
         {
             if (thisValue != null) return thisValue.ToString().Trim();
+            return "";
+        }
+        public static string ObjToStringNoTrim(this object thisValue)
+        {
+            if (thisValue != null) return thisValue.ToString();
             return "";
         }
         public static string ObjToStringNew(this object thisValue)

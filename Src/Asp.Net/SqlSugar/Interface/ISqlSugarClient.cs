@@ -44,6 +44,8 @@ namespace SqlSugar
         #endregion
 
         #region Other methods
+        void Tracking<T>(T  data) where T : class, new();
+        void Tracking<T>(List<T> data) where T : class, new();
         SqlSugarClient CopyNew();
         T CreateContext<T>(bool isTran=true) where T : SugarUnitOfWork, new();
         SugarUnitOfWork CreateContext(bool isTran = true);
@@ -53,6 +55,7 @@ namespace SqlSugar
         DateTime GetDate();
         //SimpleClient GetSimpleClient();
         SimpleClient<T> GetSimpleClient<T>() where T : class, new();
+        RepositoryType GetRepository<RepositoryType>() where RepositoryType : ISugarRepository, new();
         void InitMappingInfo(Type type);
         void InitMappingInfo<T>();
         void Open();
@@ -129,7 +132,7 @@ namespace SqlSugar
              where T3 : class, new()
              where T4 : class, new();
         ISugarQueryable<T> Queryable<T>();
-        ISugarQueryable<T> Queryable<T>(ISugarQueryable<T> queryable) where T : class, new();
+        ISugarQueryable<T> Queryable<T>(ISugarQueryable<T> queryable);  
         ISugarQueryable<T> Queryable<T>(string shortName);
         #endregion
 
@@ -206,11 +209,15 @@ namespace SqlSugar
         #region  Nav CUD
         InsertNavTaskInit<T, T> InsertNav<T>(T data) where T : class, new();
         InsertNavTaskInit<T, T> InsertNav<T>(List<T> datas) where T : class, new();
+        InsertNavTaskInit<T, T> InsertNav<T>(T data,InsertNavRootOptions rootOptions) where T : class, new();
+        InsertNavTaskInit<T, T> InsertNav<T>(List<T> datas, InsertNavRootOptions rootOptions) where T : class, new();
         DeleteNavTaskInit<T, T> DeleteNav<T>(T data) where T : class, new();
         DeleteNavTaskInit<T, T> DeleteNav<T>(List<T> datas) where T : class, new();
         DeleteNavTaskInit<T, T> DeleteNav<T>(Expression<Func<T,bool>> whereExpression) where T : class, new();
         UpdateNavTaskInit<T, T> UpdateNav<T>(T data) where T : class, new ();
-        UpdateNavTaskInit<T, T> UpdateNav<T>(List<T> datas) where T : class, new (); 
+        UpdateNavTaskInit<T, T> UpdateNav<T>(List<T> datas) where T : class, new ();
+        UpdateNavTaskInit<T, T> UpdateNav<T>(T data,UpdateNavRootOptions rootOptions) where T : class, new();
+        UpdateNavTaskInit<T, T> UpdateNav<T>(List<T> datas, UpdateNavRootOptions rootOptions) where T : class, new();
         #endregion
 
     }

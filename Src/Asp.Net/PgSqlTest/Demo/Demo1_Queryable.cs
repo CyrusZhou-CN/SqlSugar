@@ -31,6 +31,7 @@ namespace OrmTest
             var db = GetInstance();
             var dbTime = db.GetDate();
             var getAll = db.Queryable<Order>().ToList();
+            var getAll2 = db.Queryable<object>().AsType(typeof(Order)).Where(it=>((Order)it).Id>0).ToList();
             var getOrderBy = db.Queryable<Order>().OrderBy(it => it.Name,OrderByType.Desc).ToList();
             var getOrderBy2 = db.Queryable<Order>().OrderBy(it => it.Id).OrderBy(it => it.Name, OrderByType.Desc).ToList();
             var getOrderBy3 = db.Queryable<Order>().OrderBy(it =>new { it.Name,it.Id}).ToList();
@@ -54,6 +55,16 @@ namespace OrmTest
             var test06 = db.Queryable<Order>().
               Where(it => it.Price == 0 ? true : it.Name == it.Name)
               .ToList();
+            var test07 = db.Queryable<Order>().Select(it => new
+            {
+                names = SqlFunc.Subqueryable<Order>().Where(z=>z.Id==it.Id).SelectStringJoin(z => z.Name, ",")
+            })
+            .ToList();
+            var test08 = db.Queryable<Order>().Select(it => new
+            {
+                names = $"as{it.Id}fd{it.Id}a"
+            })
+             .ToList();
             Console.WriteLine("#### Examples End ####");
             Console.WriteLine("#### Examples End ####");
         }
@@ -244,7 +255,21 @@ namespace OrmTest
 
             var query2 = db.Queryable<Custom>();
             var list3=db.Queryable(query1, query2,JoinType.Left, (p1, p2) => p1.CustomId == p2.Id).Select<ViewOrder>().ToList();
+            
+            db.Queryable<Order>()
+            .Select(it => new { id = it.Id })
+            .MergeTable()//合并成一个表 和 OrderItem 进行JOIN
+            .LeftJoin<OrderItem>((x, y) => x.id == y.ItemId)
+            .Select((x, y) => new { xid = x.id, yid = y.ItemId })
+            .MergeTable()//合并成一个表 和 OrderItem 进行JOIN
+            .LeftJoin<OrderItem>((x, y) => x.yid == y.ItemId)// 最后一个表不是匿名对象就行
+            .ToList();
 
+            var type = JoinType.Left;
+              db.Queryable<Order, OrderItem>((o, i) => new JoinQueryInfos(
+                 type, o.Id == i.OrderId
+               ))
+            .Where(o => o.Name == "jack").ToList();
             Console.WriteLine("#### Join Table End ####");
         }
 

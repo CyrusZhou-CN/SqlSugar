@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Dynamic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,6 +18,10 @@ namespace SqlSugar
         List<ExpandoObject> DataReaderToExpandoObjectListNoUsing(IDataReader reader);
         Task<List<ExpandoObject>> DataReaderToExpandoObjectListAsyncNoUsing(IDataReader dataReader);
         List<T> DataReaderToList<T>(IDataReader reader);
+        List<T> DataReaderToSelectJsonList<T>(IDataReader reader);
+        List<T> DataReaderToSelectArrayList<T>(IDataReader reader);
+        Task<List<T>> DataReaderToSelectArrayListAsync<T>(IDataReader reader);
+        Task<List<T>> DataReaderToSelectJsonListAsync<T>(IDataReader reader);
         List<T> DataReaderToListNoUsing<T>(IDataReader reader);
         Task<List<T>> DataReaderToListAsync<T>(IDataReader dataReader);
         Task<List<T>> DataReaderToListAsyncNoUsing<T>(IDataReader dataReader);
@@ -39,5 +44,6 @@ namespace SqlSugar
         Task PageEachAsync<T, ResultType>(IEnumerable<T> pageItems, int pageSize, Func<List<T>, Task<ResultType>> action);
         List<IConditionalModel> JsonToConditionalModels(string json);
         DataTable DictionaryListToDataTable(List<Dictionary<string, object>> dictionaryList);
+        List<T> ToTree<T>(List<T> list, Expression<Func<T, IEnumerable<object>>> childListExpression, Expression<Func<T, object>> parentIdExpression, Expression<Func<T, object>> pkExpression,  object rootValue);
     }
 }

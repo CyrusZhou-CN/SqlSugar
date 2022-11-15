@@ -31,6 +31,10 @@ namespace SqlSugar
         public Dictionary<string, int> OracleSeqInfoList { get; set; }
         public bool IsBlukCopy { get; set; }
         public virtual bool IsOleDb { get; set; }
+        public virtual Func<string, string, string> ConvertInsertReturnIdFunc { get; set; }
+        public virtual bool IsNoPage { get; set; }
+
+        public virtual bool IsReturnPkList { get; set; }
         #endregion
 
         #region SqlTemplate
@@ -245,8 +249,7 @@ namespace SqlSugar
                 }
                 else if (type == UtilConstants.DateTimeOffsetType)
                 {
-                    var date = UtilMethods.ConvertFromDateTimeOffset((DateTimeOffset)value);
-                    return "'" + date.ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
+                    return FormatDateTimeOffset(value);
                 }
                 else if (type == UtilConstants.FloatType) 
                 {
@@ -257,6 +260,12 @@ namespace SqlSugar
                     return N+"'" + value.ToString() + "'";
                 }
             }
+        }
+
+        public virtual string FormatDateTimeOffset(object value)
+        {
+            var date = UtilMethods.ConvertFromDateTimeOffset((DateTimeOffset)value);
+            return "'" + date.ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
         }
         #endregion
     }

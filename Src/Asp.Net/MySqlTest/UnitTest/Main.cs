@@ -31,6 +31,9 @@ namespace OrmTest
         }
         public static void Init()
         {
+            UCustom20.Init();
+            UCustom07.Init();
+            UnitTestReturnPkList.Init();
             UnitSameKeyBug.Init();
             UOneManyMany.init();
             UDelete.Init();
@@ -41,6 +44,7 @@ namespace OrmTest
             UnitCustom01.Init();
             UCustom06.Init();
             Bulk();
+            Bulk2();
             Insert();
             Queue();
             CodeFirst();

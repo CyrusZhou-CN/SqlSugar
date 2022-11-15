@@ -288,10 +288,36 @@ namespace OrmTest
              .LeftJoin<OrderItem>((o, i) => o.Id == i.OrderId).AS<OrderItem>("[ORDERDETAIL]")
              .LeftJoin<Custom>((o, i, c) => c.Id == o.CustomId).AS<Custom>("[CUSTOM]")
              .Select<ViewOrder>().ToSql();
-            if (sql14.Key!=("SELECT c.[Name] AS [CustomName],o.[Id] AS [Id],o.[Name] AS [Name],o.[Price] AS [Price],o.[CreateTime] AS [CreateTime],o.[CustomId] AS [CustomId] FROM  (SELECT * FROM  (select * from [ORDER]) t  WITH(NOLOCK)  ) o Left JOIN [ORDERDETAIL] i  ON ( [o].[Id] = [i].[OrderId] )  Left JOIN [CUSTOM] c  ON ( [c].[Id] = [o].[CustomId] )  ")) 
+            if (sql14.Key!=("SELECT c.[Name] AS [CustomName],o.[Id] AS [Id],o.[Name] AS [Name],o.[Price] AS [Price],o.[CreateTime] AS [CreateTime],o.[CustomId] AS [CustomId] FROM  (SELECT * FROM  (select * from [ORDER]) t ) o Left JOIN [ORDERDETAIL] i  ON ( [o].[Id] = [i].[OrderId] )  Left JOIN [CUSTOM] c  ON ( [c].[Id] = [o].[CustomId] )  ")) 
             {
                 throw new Exception("unit error");
             }
+            
+            var sql15=db.Updateable(new List<UintAinstringHAHA>()
+            {
+                new UintAinstringHAHA(){  id="1", xame="a" },
+                 new UintAinstringHAHA(){  id="2", xame="a" }
+            }).ToSql().Key;
+            db.CodeFirst.InitTables<UintAinstringHAHA>();
+            db.DbMaintenance.TruncateTable<UintAinstringHAHA>();
+            db.Insertable(new List<UintAinstringHAHA>()
+            {
+                new UintAinstringHAHA(){  id="1", xame="a" },
+                 new UintAinstringHAHA(){  id="2", xame="a" }
+            }).ExecuteCommand();
+            var rows=db.Ado.ExecuteCommand(sql15);
+            if (sql15.ToLower().Contains("n'") || rows != 2) 
+            {
+                throw new Exception("unit error");
+            }
+        }
+
+        public class UintAinstringHAHA 
+        {
+            [SugarColumn(IsPrimaryKey =true,SqlParameterDbType =System.Data.DbType.AnsiString)]
+            public string id { get; set; }
+            [SugarColumn(SqlParameterDbType = System.Data.DbType.AnsiString)]
+            public string xame { get; set; }
         }
         public class VUOrder
         {

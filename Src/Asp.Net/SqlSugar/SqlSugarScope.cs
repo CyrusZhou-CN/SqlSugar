@@ -188,7 +188,10 @@ namespace SqlSugar
         {
             return ScopedContext.GetSimpleClient<T>();
         }
-
+        public RepositoryType GetRepository<RepositoryType>() where RepositoryType : ISugarRepository, new() 
+        {
+            return ScopedContext.GetRepository<RepositoryType>();   
+        }
         public void InitMappingInfo(Type type)
         {
             ScopedContext.InitMappingInfo(type);
@@ -440,7 +443,7 @@ namespace SqlSugar
             return ScopedContext.Queryable<T>();
         }
 
-        public ISugarQueryable<T> Queryable<T>(ISugarQueryable<T> queryable) where T : class, new()
+        public ISugarQueryable<T> Queryable<T>(ISugarQueryable<T> queryable)  
         {
             return ScopedContext.Queryable(queryable);
         }
@@ -742,6 +745,14 @@ namespace SqlSugar
         {
             return ScopedContext.InsertNav(datas);
         }
+        public InsertNavTaskInit<T, T> InsertNav<T>(T data, InsertNavRootOptions rootOptions) where T : class, new()
+        {
+            return ScopedContext.InsertNav(data, rootOptions);
+        }
+        public InsertNavTaskInit<T, T> InsertNav<T>(List<T> datas, InsertNavRootOptions rootOptions) where T : class, new()
+        {
+            return ScopedContext.InsertNav(datas, rootOptions);
+        }
         public DeleteNavTaskInit<T, T> DeleteNav<T>(T data) where T : class, new()
         {
             return ScopedContext.DeleteNav(data);
@@ -762,9 +773,25 @@ namespace SqlSugar
         {
             return ScopedContext.UpdateNav(datas);
         }
+        public UpdateNavTaskInit<T, T> UpdateNav<T>(T data,UpdateNavRootOptions rootOptions) where T : class, new()
+        {
+            return ScopedContext.UpdateNav(data, rootOptions);
+        }
+        public UpdateNavTaskInit<T, T> UpdateNav<T>(List<T> datas, UpdateNavRootOptions rootOptions) where T : class, new()
+        {
+            return ScopedContext.UpdateNav(datas, rootOptions);
+        }
         public SqlSugarClient CopyNew() 
         {
             return new SqlSugarClient(UtilMethods.CopyConfig(this.Ado.Context.CurrentConnectionConfig));
+        }
+        public void Tracking<T>(T data) where T : class, new()
+        {
+            ScopedContext.Tracking(data);
+        }
+        public void Tracking<T>(List<T> datas) where T : class, new()
+        {
+            ScopedContext.Tracking(datas);
         }
     }
 }

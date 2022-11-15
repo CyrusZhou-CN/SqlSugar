@@ -32,6 +32,7 @@ namespace SqlSugar
         }
         private string _ExecuteCommand()
         {
+            CheckWhere();
             PreToSql();
             AutoRemoveDataCache();
             Check.Exception(UpdateBuilder.WhereValues.IsNullOrEmpty() && GetPrimaryKeys().IsNullOrEmpty(), "You cannot have no primary key and no conditions");
@@ -40,6 +41,14 @@ namespace SqlSugar
             RestoreMapping();
             Before(sql);
             return sql;
+        }
+
+        private void CheckWhere()
+        {
+            if (UpdateParameterIsNull && UpdateBuilder.WhereValues.IsNullOrEmpty()) 
+            {
+                Check.ExceptionEasy("Update requires conditions", "更新需要条件 Where");
+            }
         }
 
         private void _WhereColumn(string columnName)
@@ -85,6 +94,7 @@ namespace SqlSugar
                 {
                     DataAop(item);
                     SetUpdateItemByEntity(i, item, updateItem);
+                    Tracking(item);
                 }
                 ++i;
             }
@@ -95,6 +105,38 @@ namespace SqlSugar
             {
                 this.IgnoreColumns(ignoreColumns.Select(it => it.PropertyName).ToArray());
             }
+        }
+
+        private void Tracking(T item)
+        {
+            if (IsTrakingData())
+            {
+                var trackingData = this.Context.TempItems.FirstOrDefault(it => it.Key.StartsWith("Tracking_" + item.GetHashCode()));
+                var diffColumns = FastCopy.GetDiff(item, (T)trackingData.Value);
+                if (diffColumns.Count > 0)
+                {
+                    var pks = EntityInfo.Columns
+                        .Where(it => it.IsPrimarykey).Select(it => it.PropertyName).ToList();
+                    diffColumns = diffColumns.Where(it => !pks.Contains(it)).ToList();
+                    if (diffColumns.Count > 0)
+                    {
+                        this.UpdateColumns(diffColumns.ToArray());
+                    }
+                }
+                else 
+                {
+                    this.UpdateObjs = new T [] { null };
+                    this.UpdateBuilder.DbColumnInfoList = new List<DbColumnInfo>();
+                }
+            }
+        }
+
+        private bool IsTrakingData()
+        {
+            return this.UpdateParameterIsNull == false
+                                    && this.Context.TempItems != null
+                                    && this.Context.TempItems.Any(it => it.Key.StartsWith("Tracking_"))
+                                    && this.UpdateObjs.Length == 1;
         }
 
         private void DataAop(T item)
@@ -119,10 +161,10 @@ namespace SqlSugar
             {
                 Check.Exception(true, ErrorMessage.GetThrowMessage("UpdateColumns no support IsJson", "SetColumns方式更新不支持IsJson，你可以使用db.Updateable(实体)的方式更新"));
             }
-            if (this.EntityInfo.Columns.Any(it => it.IsArray))
-            {
-                Check.Exception(true, ErrorMessage.GetThrowMessage("UpdateColumns no support IsArray", "SetColumns方式更新不支持IsArray，你可以使用db.Updateable(实体)的方式更新"));
-            }
+            //if (this.EntityInfo.Columns.Any(it => it.IsArray))
+            //{
+            //    Check.Exception(true, ErrorMessage.GetThrowMessage("UpdateColumns no support IsArray", "SetColumns方式更新不支持IsArray，你可以使用db.Updateable(实体)的方式更新"));
+            //}
         }
         private void SetUpdateItemByDic(int i, T item, List<DbColumnInfo> updateItem)
         {
@@ -163,6 +205,7 @@ namespace SqlSugar
                     DbColumnName = GetDbColumnName(column.PropertyName),
                     PropertyName = column.PropertyName,
                     PropertyType = UtilMethods.GetUnderType(column.PropertyInfo),
+                    SqlParameterDbType = column.SqlParameterDbType,
                     TableId = i
                 };
                 if (columnInfo.PropertyType.IsEnum() && columnInfo.Value != null)
@@ -225,6 +268,7 @@ namespace SqlSugar
             #endregion
             if (this.IsSingle)
             {
+                var isDic = this.EntityInfo.DbTableName.StartsWith("Dictionary`");
                 foreach (var item in this.UpdateBuilder.DbColumnInfoList)
                 {
                     if (this.UpdateBuilder.Parameters == null) this.UpdateBuilder.Parameters = new List<SugarParameter>();
@@ -240,6 +284,14 @@ namespace SqlSugar
                     if (item.IsArray)
                     {
                         parameter.IsArray = true;
+                    }
+                    if (item.Value == null && isDic)
+                    {
+                        var type = this.SqlBuilder.GetNullType(this.UpdateBuilder.GetTableNameString, item.DbColumnName);
+                        if (type != null)
+                        {
+                            parameter = new SugarParameter(this.SqlBuilder.SqlParameterKeyWord + item.DbColumnName, item.Value, type);
+                        }
                     }
                     this.UpdateBuilder.Parameters.Add(parameter);
                 }
@@ -408,8 +460,13 @@ namespace SqlSugar
             var oldValue = verColumn.PropertyInfo.GetValue(updateData);
             var newValue = UtilMethods.GetRandomByType(verColumn.UnderType);
             verColumn.PropertyInfo.SetValue(updateData, newValue);
-            var data = this.UpdateBuilder.DbColumnInfoList.First(it =>
+            var data = this.UpdateBuilder.DbColumnInfoList.FirstOrDefault(it =>
             it.PropertyName.EqualCase(verColumn.PropertyName));
+            if (data == null) 
+            {
+                data = new DbColumnInfo() { DbColumnName= verColumn.DbColumnName,PropertyName=verColumn.PropertyName, Value=newValue };
+                this.UpdateBuilder.DbColumnInfoList.Add(data);
+            }
             data.Value = newValue;
             var pks = GetPrimaryKeys();
             Check.ExceptionEasy(pks.Count == 0, "need primary key or WhereColumn", "需要主键或者WhereColumn");

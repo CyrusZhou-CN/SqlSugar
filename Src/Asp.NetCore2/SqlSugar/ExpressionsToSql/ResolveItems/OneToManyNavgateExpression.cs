@@ -149,8 +149,10 @@ namespace SqlSugar
         private MapperSql GetManyToManySql()
         {
          
-            var bPk = this.ProPertyEntity.Columns.First(it => it.IsPrimarykey == true).DbColumnName;
-            var aPk = this.EntityInfo.Columns.First(it => it.IsPrimarykey == true).DbColumnName;
+            var bPk = this.ProPertyEntity.Columns.FirstOrDefault(it => it.IsPrimarykey == true)?.DbColumnName;
+            var aPk = this.EntityInfo.Columns.FirstOrDefault(it => it.IsPrimarykey == true)?.DbColumnName;
+            Check.ExceptionEasy(aPk.IsNullOrEmpty(), $"{this.EntityInfo.EntityName}need primary key", $"{this.EntityInfo.EntityName}需要主键");
+            Check.ExceptionEasy(bPk.IsNullOrEmpty(), $"{this.ProPertyEntity.EntityName}need primary key", $"{this.ProPertyEntity.EntityName}需要主键");
             MapperSql mapper = new MapperSql();
             var queryable = this.context.Queryable<object>();
             bPk = queryable.QueryBuilder.Builder.GetTranslationColumnName(bPk);
@@ -163,6 +165,19 @@ namespace SqlSugar
             mappingA = queryable.QueryBuilder.Builder.GetTranslationColumnName(mappingA);
             mappingB = queryable.QueryBuilder.Builder.GetTranslationColumnName(mappingB);
             var bTableName = queryable.QueryBuilder.Builder.GetTranslationTableName(this.ProPertyEntity.DbTableName);
+            this.context.InitMappingInfo(mappingType);
+            var queryBuilerAB=this.context.Queryable<object>().QueryBuilder;
+            queryBuilerAB.LambdaExpressions.ParameterIndex = 100+this.methodCallExpressionResolve.Index;
+            var filters= queryBuilerAB.GetFilters(mappingType);
+            if (filters.HasValue()) 
+            {
+                aPk += " AND " + filters;
+                if (queryBuilerAB.Parameters != null) 
+                {
+                    this.methodCallExpressionResolve.Context.Parameters.AddRange(queryBuilerAB.Parameters);
+                }
+            }
+
             mapper.Sql = $" (select {(MethodName == "Any" ? "1":" COUNT(1) ")} from {bTableName} {this.ProPertyEntity.DbTableName}_1  where  {this.ProPertyEntity.DbTableName}_1.{bPk} in (select {mappingB} from {mappingTableName} where {mappingA} = {ShorName}.{aPk} )  )";
             if (this.whereSql.HasValue())
             {

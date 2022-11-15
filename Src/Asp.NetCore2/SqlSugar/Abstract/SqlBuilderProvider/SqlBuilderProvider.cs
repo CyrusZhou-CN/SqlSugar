@@ -129,7 +129,17 @@ namespace SqlSugar
                 if (model is ConditionalModel)
                 {
                     var item = model as ConditionalModel;
-                    if (item.FieldName == $"[value=sql{UtilConstants.ReplaceKey}]") 
+                    if (item.CustomConditionalFunc != null) 
+                    {
+                        var colIndex = mainIndex + beginIndex;
+                        var colType = colIndex == 0 ? "" : "AND";
+                        var custom = item.CustomConditionalFunc.GetConditionalSql(item, colIndex);
+                        parameters.AddRange(custom.Value);
+                        builder.AppendFormat(" "+colType + " "+custom.Key);
+                        mainIndex++;
+                        continue;
+                    }
+                    else if (item.FieldName == $"[value=sql{UtilConstants.ReplaceKey}]") 
                     {
                         builder.Append(item.FieldValue);
                         continue;
@@ -154,7 +164,7 @@ namespace SqlSugar
                     {
                         parameterName = parameterName.Replace("]", "_");
                     }
-                    if (parameterName.Contains(this.SqlTranslationLeft))
+                    if (!string.IsNullOrEmpty(this.SqlTranslationLeft)&&parameterName.Contains(this.SqlTranslationLeft))
                     {
                         parameterName = parameterName.Replace(this.SqlTranslationLeft, "_");
                     }
@@ -362,6 +372,10 @@ namespace SqlSugar
         public virtual string GetUnionFomatSql(string sql)
         {
             return sql;
+        }
+        public virtual Type GetNullType(string tableName,string columnName) 
+        {
+            return null;
         }
         private void BuilderTree(StringBuilder builder,ConditionalTree item,ref  int indexTree, List<SugarParameter>  parameters,ref int mainIndex)
         {
