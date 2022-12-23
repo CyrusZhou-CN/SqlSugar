@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -230,7 +231,7 @@ namespace SqlSugar.ClickHouse
             }
             return base.AddColumn(tableName, columnInfo);
         }
-        public override bool AddPrimaryKey(string tableName, string columnName)
+        public override bool AddPrimaryKey(string tableName, string columnName, bool IsIdentity= false)
         {
             return true;
         }

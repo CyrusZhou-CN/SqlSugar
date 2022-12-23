@@ -45,9 +45,20 @@ namespace SqlSugar
                 new SubSelect() { Context = this.Context }.SetShortName(exp, "+");
             }
             var argExp = exp.Arguments[0];
-            var result = "WHERE " + SubTools.GetMethodValue(Context, argExp, ResolveExpressType.WhereMultiple);
+            var copyContext = this.Context;
+            if (this.Context.JoinIndex > 0) 
+            {
+                copyContext = this.Context.GetCopyContextWithMapping();
+                copyContext.IsSingle = false;
+            }
+            var result = "WHERE " + SubTools.GetMethodValue(copyContext, argExp, ResolveExpressType.WhereMultiple);
 
-
+            if (this.Context.JoinIndex > 0) 
+            {
+                this.Context.Parameters.AddRange(copyContext.Parameters);
+                this.Context.Index = copyContext.Index;
+                this.Context.ParameterIndex = copyContext.ParameterIndex;
+            }
 
             var regex = @"^WHERE  (\@Const\d+) $";
             if (this.Context is OracleExpressionContext)

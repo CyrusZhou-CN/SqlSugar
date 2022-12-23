@@ -35,8 +35,41 @@ namespace OrmTest
             db.CodeFirst.InitTables<CodeFirstByte>();
             db.Insertable(new CodeFirstByte() { array = new byte[] { 1, 2, 4, 5 } }).ExecuteCommand();
             var list4=db.Queryable<CodeFirstByte>().ToList();
+            db.CodeFirst.InitTables<CodeFirstEnum>();
+            db.DbMaintenance.TruncateTable<CodeFirstEnum>();
+            db.Storageable(new CodeFirstEnum() { dbType = DbType.Access, Name = "a" }).ExecuteCommand();
+            db.CodeFirst.InitTables<CodeFirstArray>();
+            db.Insertable(new List<CodeFirstArray>() { 
+                new CodeFirstArray() {   floats = new float[] { 1 } },
+                   new CodeFirstArray() {   floats = new float[] { 1 } }
+
+            }).ExecuteCommand();
+            var list5=db.Queryable<CodeFirstArray>().ToList();
+            db.CodeFirst.InitTables<CodeFirstArraryBigInt>();
+            db.Updateable<CodeFirstArraryBigInt>()
+                .SetColumns(it => it.longs == new long[] { 1, 2 })
+                .Where(it=>it.id==1)
+                .ExecuteCommand();
             Console.WriteLine("#### CodeFirst end ####");
         }
+    }
+    public class CodeFirstArraryBigInt 
+    {
+        [SugarColumn(IsPrimaryKey =true)]
+        public int id { get; set; }
+        [SugarColumn(IsArray =true,ColumnDataType ="int8 []")]
+        public long[] longs { get; set; }
+    }
+    public class CodeFirstArray 
+    {
+        [SugarColumn(IsArray =true,ColumnDataType = "real[]")]
+        public float[] floats { get; set; }
+    }
+    public class CodeFirstEnum 
+    {
+        [SugarColumn(IsPrimaryKey =true)]
+        public DbType dbType { get; set; }
+        public string Name { get; set; }
     }
     public class CodeFirstByte 
     {

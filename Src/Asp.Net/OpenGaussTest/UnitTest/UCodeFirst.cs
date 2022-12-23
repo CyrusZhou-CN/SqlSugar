@@ -47,6 +47,74 @@ namespace OrmTest
             Db.Insertable(new UnitCodeFirst131() { Id = 1 }).ExecuteCommand();
             Db.CodeFirst.InitTables<UNITCODEFIRST131>();
             Db.CodeFirst.InitTables<UNITCOdEFIRST131>();
+            Db.CodeFirst.InitTables<TestTbl>();
+            var db = Db;
+            db.CurrentConnectionConfig.MoreSettings = new ConnMoreSettings()
+            {
+                PgSqlIsAutoToLower = false,
+                 PgSqlIsAutoToLowerCodeFirst=false
+            };
+            db.CodeFirst.InitTables<UpperOrder>();
+            var list=db.Queryable<UpperOrder, UpperOrder>((X1,Y1)=>new JoinQueryInfos(
+                 JoinType.Left,X1.Id==Y1.Id
+                ) ).ToList();
+
+            var list3 = db.Queryable<UpperOrder, UpperOrder>((X1, Y1) => X1.Id == Y1.Id)
+              .Select(X1 => X1).ToList();
+
+            db.Insertable(new UpperOrder()
+            {
+                 CreateTime=DateTime.Now,
+                  CustomId=0,
+                   Name="a",
+                    Price=1
+            }).ExecuteReturnIdentity();
+
+            db.Insertable(new UpperOrder()
+            {
+                CreateTime = DateTime.Now,
+                CustomId = 0,
+                Name = "a",
+                Price = 1
+            }).ExecuteReturnBigIdentity();
+
+            db.Insertable(new List<UpperOrder>() { new UpperOrder()
+            {
+                CreateTime = DateTime.Now,
+                CustomId = 0,
+                Name = "a",
+                Price = 1
+            },new UpperOrder()
+            {
+                CreateTime = DateTime.Now,
+                CustomId = 0,
+                Name = "a",
+                Price = 1
+            } }).ExecuteReturnIdentity();
+        }
+        public class UpperOrder
+        {
+            [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
+            public int Id { get; set; }
+
+            public string Name { get; set; }
+            public decimal Price { get; set; }
+            [SugarColumn(IsNullable = true)]
+            public DateTime CreateTime { get; set; }
+            [SugarColumn(IsNullable = true)]
+            public int CustomId { get; set; }
+            [SugarColumn(IsIgnore = true)]
+            public List<OrderItem> Items { get; set; }
+        }
+
+        [SugarTable("test_tbl")]
+        public class TestTbl
+        {
+            [SugarColumn(ColumnName = "id", IsPrimaryKey = true, IsIdentity = true)]
+            public long Id { get; set; }
+
+            [SugarColumn(ColumnName = "birthday", IsNullable = true, DefaultValue = "1900-01-01")]
+            public DateTime Birthday { get; set; }
         }
         public class UnitCodeFirst131
         {

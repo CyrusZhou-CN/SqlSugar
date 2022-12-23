@@ -546,5 +546,76 @@ namespace SqlSugar
             }
             return result;
         }
+
+        internal static bool IsSubQuery(Expression it)
+        {
+            if (it is MethodCallExpression) 
+            {
+                var method = (MethodCallExpression)it;
+                if (method.Object != null && method.Object.Type.Name.StartsWith("Subquery")) 
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        internal static bool IsIsNullSubQuery(Expression it)
+        {
+            if (it is MethodCallExpression)
+            {
+                var method = (MethodCallExpression)it;
+                if (method.Method.Name == "IsNull")
+                {
+                    if (method.Arguments.Count==2&&IsSubQuery(method.Arguments[0])) 
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        internal static bool IsMemberInit(object selectValue)
+        {
+            var result = false;
+            if (selectValue is Expression) 
+            {
+                if (selectValue is MemberInitExpression)
+                {
+                    result = true;
+                }
+                else if (selectValue is LambdaExpression) 
+                {
+                    var lambda = (LambdaExpression)selectValue;
+                    if (lambda.Body is MemberInitExpression) 
+                    {
+                        result = true;
+                    }
+                }
+            }
+            return result;
+        }
+
+        internal static MemberInitExpression GetMemberInit(object selectValue)
+        {
+            MemberInitExpression result = null;
+            if (selectValue is Expression)
+            {
+                if (selectValue is MemberInitExpression)
+                {
+                    result = (MemberInitExpression)selectValue;
+                }
+                else if (selectValue is LambdaExpression)
+                {
+                    var lambda = (LambdaExpression)selectValue;
+                    if (lambda.Body is MemberInitExpression)
+                    {
+                        result = (MemberInitExpression)lambda.Body;
+                    }
+                }
+            }
+            return result;
+        }
     }
 }

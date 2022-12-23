@@ -10,6 +10,7 @@ namespace SqlSugar
 
         #region DML
         List<string> GetDataBaseList(SqlSugarClient db);
+        List<string> GetDataBaseList();
         List<DbTableInfo> GetViewInfoList(bool isCache=true);
         List<DbTableInfo> GetTableInfoList(bool isCache=true);
         List<DbColumnInfo> GetColumnInfosByTableName(string tableName,bool isCache=true);
@@ -25,6 +26,7 @@ namespace SqlSugar
         bool IsIdentity(string tableName, string column);
         bool IsAnyConstraint(string ConstraintName);
         bool IsAnySystemTablePermissions();
+        bool IsAnyProcedure(string procName);
         #endregion
 
         #region DDL

@@ -69,7 +69,7 @@ namespace SqlSugar
                 }
             }
         }
-        private SqlSugarProvider GetContext(bool isInit = false)
+        protected virtual SqlSugarProvider GetContext(bool isInit = false)
         {
             SqlSugarProvider result = null;
             var key = GetKey(); ;
@@ -566,6 +566,14 @@ namespace SqlSugar
         {
             return ScopedContext.SqlQueryable<T>(sql);
         }
+        public StorageableDataTable Storageable(List<Dictionary<string, object>> dictionaryList, string tableName)
+        {
+            return ScopedContext.Storageable(dictionaryList, tableName);
+        }
+        public StorageableDataTable Storageable(Dictionary<string, object> dictionary, string tableName)
+        {
+            return ScopedContext.Storageable(dictionary, tableName);
+        }
 
         public IStorageable<T> Storageable<T>(List<T> dataList) where T : class, new()
         {
@@ -579,6 +587,10 @@ namespace SqlSugar
         public StorageableDataTable Storageable(DataTable data)
         {
             return ScopedContext.Storageable(data);
+        }
+        public StorageableMethodInfo StorageableByObject(object singleEntityObjectOrListObject) 
+        {
+            return ScopedContext.StorageableByObject(singleEntityObjectOrListObject);
         }
 
         public ISugarQueryable<T> Union<T>(List<ISugarQueryable<T>> queryables) where T : class, new()

@@ -31,6 +31,15 @@ namespace OrmTest
         }
         public static void Init()
         {
+            UInsert3.Init();
+            UnitSubToList.Init();
+            UnitByteArray.Init();
+            Unit001.Init();
+            UnitPgSplit.Init();
+            UJsonFunc.Init();
+            UnitTestReturnPkList.Init();
+            UCustom07.Init();
+            UCustom016.Init();
             UCustom08.Init();
             UCustom012.Init();
             UCustom014.Init();

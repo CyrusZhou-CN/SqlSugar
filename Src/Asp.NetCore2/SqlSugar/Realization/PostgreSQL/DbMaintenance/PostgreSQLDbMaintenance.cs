@@ -181,7 +181,7 @@ namespace SqlSugar
 
         protected override string IsAnyTableRemarkSql { get { throw new NotSupportedException(); } }
 
-        protected override string RenameTableSql => "alter table 表名 {0} to {1}";
+        protected override string RenameTableSql => "alter table  {0} to {1}";
 
         protected override string CreateIndexSql
         {
@@ -204,7 +204,7 @@ namespace SqlSugar
                 return "  SELECT count(1) WHERE upper('{0}') IN ( SELECT upper(indexname) FROM pg_indexes )";
             }
         }
-
+        protected override string IsAnyProcedureSql => throw new NotImplementedException();
         #endregion
 
         #region Check
@@ -256,7 +256,7 @@ namespace SqlSugar
         public override bool AddColumnRemark(string columnName, string tableName, string description)
         {
             tableName = this.SqlBuilder.GetTranslationTableName(tableName);
-            string sql = string.Format(this.AddColumnRemarkSql, columnName, tableName, description);
+            string sql = string.Format(this.AddColumnRemarkSql, this.SqlBuilder.GetTranslationColumnName(columnName.ToLower(isAutoToLowerCodeFirst)), tableName, description);
             this.Context.Ado.ExecuteCommand(sql);
             return true;
         }

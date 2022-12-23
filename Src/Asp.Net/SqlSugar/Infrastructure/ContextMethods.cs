@@ -16,6 +16,8 @@ namespace SqlSugar
     public partial class ContextMethods : IContextMethods
     {
         public SqlSugarProvider Context { get; set; }
+        public QueryBuilder QueryBuilder { get; set; }
+
         #region DataReader
 
         /// <summary>
@@ -198,6 +200,7 @@ namespace SqlSugar
                         Dictionary<string, object> result = DataReaderToList(reader, tType, classProperties, reval);
                         var stringValue = SerializeObject(result);
                         reval.Add((T)DeserializeObject<T>(stringValue));
+                        SetAppendColumns(reader);
                     }
                 }
                 return reval;
@@ -290,6 +293,7 @@ namespace SqlSugar
                         Dictionary<string, object> result = DataReaderToList(reader, tType, classProperties, reval);
                         var stringValue = SerializeObject(result);
                         reval.Add((T)DeserializeObject<T>(stringValue));
+                        SetAppendColumns(reader);
                     }
                 }
                 return reval;
@@ -449,7 +453,27 @@ namespace SqlSugar
 
             return result;
         }
-
+        private void SetAppendColumns(IDataReader dataReader)
+        {
+            if (QueryBuilder != null && QueryBuilder.AppendColumns != null && QueryBuilder.AppendColumns.Any())
+            {
+                if (QueryBuilder.AppendValues == null)
+                    QueryBuilder.AppendValues = new List<List<QueryableAppendColumn>>();
+                List<QueryableAppendColumn> addItems = new List<QueryableAppendColumn>();
+                foreach (var item in QueryBuilder.AppendColumns)
+                {
+                    var vi = dataReader.GetOrdinal(item.AsName);
+                    var value = dataReader.GetValue(vi);
+                    addItems.Add(new QueryableAppendColumn()
+                    {
+                        Name = item.Name,
+                        AsName = item.AsName,
+                        Value = value
+                    });
+                }
+                QueryBuilder.AppendValues.Add(addItems);
+            }
+        }
         private static bool IsBytes(Dictionary<string, object> readerValues, PropertyInfo item)
         {
             return item.PropertyType == UtilConstants.ByteArrayType && 
@@ -784,6 +808,40 @@ namespace SqlSugar
                     foreach (PropertyInfo pi in propertys)
                     {
                         object obj = pi.GetValue(list[i], null);
+                        tempList.Add(obj);
+                    }
+                    object[] array = tempList.ToArray();
+                    result.LoadDataRow(array, true);
+                }
+            }
+            return result;
+        }
+
+        public DataTable ListToDataTableWithAttr<T>(List<T> list)
+        {
+            var entityInfo = this.Context.EntityMaintenance.GetEntityInfo<T>();
+            DataTable result = new DataTable();
+            result.TableName = entityInfo.DbTableName;
+            if (list != null && list.Count > 0)
+            {
+                var colimnInfos = entityInfo.Columns.Where(it=>it.IsIgnore==false);
+                foreach (var pi in colimnInfos)
+                {
+                    //获取类型
+                    Type colType = pi.PropertyInfo.PropertyType;
+                    //当类型为Nullable<>时
+                    if ((colType.IsGenericType) && (colType.GetGenericTypeDefinition() == typeof(Nullable<>)))
+                    {
+                        colType = colType.GetGenericArguments()[0];
+                    }
+                    result.Columns.Add(pi.DbColumnName, colType);
+                }
+                for (int i = 0; i < list.Count; i++)
+                {
+                    ArrayList tempList = new ArrayList();
+                    foreach (var pi in colimnInfos)
+                    {
+                        object obj = pi.PropertyInfo.GetValue(list[i], null);
                         tempList.Add(obj);
                     }
                     object[] array = tempList.ToArray();

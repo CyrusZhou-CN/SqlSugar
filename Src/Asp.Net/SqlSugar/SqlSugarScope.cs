@@ -93,7 +93,10 @@ namespace SqlSugar
         {
             ScopedContext.BeginTran();
         }
-
+        public Task BeginTranAsync()
+        {
+           return ScopedContext.BeginTranAsync();
+        }
         public void ChangeDatabase(dynamic configId)
         {
             ScopedContext.ChangeDatabase(configId);
@@ -113,7 +116,10 @@ namespace SqlSugar
         {
             ScopedContext.CommitTran();
         }
-
+        public Task CommitTranAsync()
+        {
+           return ScopedContext.CommitTranAsync();
+        }
         public IDeleteable<T> Deleteable<T>() where T : class, new()
         {
            return ScopedContext.Deleteable<T>();
@@ -472,7 +478,10 @@ namespace SqlSugar
         {
              ScopedContext.RollbackTran();
         }
-
+        public Task RollbackTranAsync()
+        {
+            return ScopedContext.RollbackTranAsync();
+        }
 
         [Obsolete("use Storageable")]
         public ISaveable<T> Saveable<T>(List<T> saveObjects) where T : class, new()
@@ -569,7 +578,14 @@ namespace SqlSugar
         {
             return ScopedContext.SqlQueryable<T>(sql);
         }
-
+        public StorageableDataTable Storageable(List<Dictionary<string, object>> dictionaryList, string tableName)
+        {
+            return ScopedContext.Storageable(dictionaryList, tableName);
+        }
+        public StorageableDataTable Storageable(Dictionary<string, object> dictionary, string tableName)
+        {
+            return ScopedContext.Storageable(dictionary, tableName);
+        }
         public IStorageable<T> Storageable<T>(List<T> dataList) where T : class, new()
         {
             return ScopedContext.Storageable(dataList);
@@ -582,6 +598,10 @@ namespace SqlSugar
         public StorageableDataTable Storageable(DataTable data)
         {
             return ScopedContext.Storageable(data);
+        }
+        public StorageableMethodInfo StorageableByObject(object singleEntityObjectOrListObject)
+        {
+            return this.ScopedContext.StorageableByObject(singleEntityObjectOrListObject);
         }
 
         public ISugarQueryable<T> Union<T>(List<ISugarQueryable<T>> queryables) where T : class, new()
@@ -792,6 +812,10 @@ namespace SqlSugar
         public void Tracking<T>(List<T> datas) where T : class, new()
         {
             ScopedContext.Tracking(datas);
+        }
+        public void RemoveConnection(dynamic configId) 
+        {
+            ScopedContext.RemoveConnection(configId);
         }
     }
 }

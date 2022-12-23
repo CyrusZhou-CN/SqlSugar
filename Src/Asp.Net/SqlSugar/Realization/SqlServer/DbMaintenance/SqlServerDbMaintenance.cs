@@ -269,6 +269,13 @@ namespace SqlSugar
                 return "select count(*) from sys.indexes where name='{0}'";
             }
         }
+        protected override string IsAnyProcedureSql
+        {
+            get
+            {
+                return "select count(*) from sys.objects where [object_id] = OBJECT_ID(N'sp_GetSubLedgerJoinWithdrawalApplicationRecords') and [type] in (N'P')";
+            }
+        }
         #endregion
 
         #region Check
@@ -314,6 +321,17 @@ namespace SqlSugar
         #endregion
 
         #region Methods
+        public override bool UpdateColumn(string tableName, DbColumnInfo column)
+        {
+            if (column.DataType != null && this.Context.CurrentConnectionConfig?.MoreSettings?.SqlServerCodeFirstNvarchar == true)
+            {
+                if (!column.DataType.ToLower().Contains("nvarchar"))
+                {
+                    column.DataType = column.DataType.ToLower().Replace("varchar", "nvarchar");
+                }
+            }
+            return base.UpdateColumn(tableName, column);
+        }
         public override bool IsAnyTable(string tableName, bool isCache = true)
         {
             if (tableName.Contains("."))
@@ -337,6 +355,10 @@ namespace SqlSugar
             }
             else 
             {
+                if (tableName.Contains(SqlBuilder.SqlTranslationLeft)) 
+                {
+                    tableName = SqlBuilder.GetNoTranslationColumnName(tableName);
+                }
                 var sql = @"IF EXISTS (SELECT * FROM sys.objects
                         WHERE type='u' AND name='"+tableName.ToSqlFilter()+@"')  
                         SELECT 1 AS res ELSE SELECT 0 AS res;";
@@ -525,6 +547,14 @@ namespace SqlSugar
                     item.DecimalDigits = 4;
                     item.Length = 18;
                 }
+                else if (item.DataType != null && this.Context.CurrentConnectionConfig?.MoreSettings?.SqlServerCodeFirstNvarchar == true)
+                {
+                    if (!item.DataType.ToLower().Contains("nvarchar"))
+                    {
+                        item.DataType = item.DataType.ToLower().Replace("varchar", "nvarchar");
+                    }
+                }
+
             }
             string sql = GetCreateTableSql(tableName, columns);
             this.Context.Ado.ExecuteCommand(sql);
@@ -559,7 +589,7 @@ namespace SqlSugar
             string sql = string.Format(this.RenameColumnSql, tableName, oldColumnName, newColumnName);
             this.Context.Ado.ExecuteCommand(sql);
             return true;
-        } 
+        }
         #endregion
     }
 }

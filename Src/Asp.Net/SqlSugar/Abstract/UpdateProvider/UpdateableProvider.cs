@@ -190,16 +190,19 @@ namespace SqlSugar
         }
         public IUpdateable<T> AS(string tableName)
         {
-            if (tableName == null) return this;
-            var entityName = typeof(T).Name;
-            IsAs = true;
-            OldMappingTableList = this.Context.MappingTables;
-            this.Context.MappingTables = this.Context.Utilities.TranslateCopy(this.Context.MappingTables);
-            if (this.Context.MappingTables.Any(it => it.EntityName == entityName))
-            {
-                this.Context.MappingTables.Add(this.Context.MappingTables.First(it => it.EntityName == entityName).DbTableName, tableName);
-            }
-            this.Context.MappingTables.Add(entityName, tableName);
+            //if (tableName == null) return this;
+            //var entityName = typeof(T).Name;
+            //IsAs = true;
+            //OldMappingTableList = this.Context.MappingTables;
+            //this.Context.MappingTables = this.Context.Utilities.TranslateCopy(this.Context.MappingTables);
+            //if (this.Context.MappingTables.Any(it => it.EntityName == entityName))
+            //{
+            //    this.Context.MappingTables.Add(this.Context.MappingTables.First(it => it.EntityName == entityName).DbTableName, tableName);
+            //}
+            //this.Context.MappingTables.Add(entityName, tableName);
+            this.UpdateBuilder.TableName = tableName;
+            if (tableName.IsNullOrEmpty())
+                this.UpdateBuilder.TableName = this.EntityInfo.DbTableName;
             return this; ;
         }
         public IUpdateable<T> EnableDiffLogEventIF(bool isEnableDiffLog, object businessData = null) 
@@ -444,7 +447,7 @@ namespace SqlSugar
                     UpdateBuilder.SetValues.Add(new KeyValuePair<string, string>(SqlBuilder.GetTranslationColumnName(key), value));
                 }
             }
-            this.UpdateBuilder.DbColumnInfoList = UpdateBuilder.DbColumnInfoList.Where(it => (UpdateParameterIsNull == false && IsPrimaryKey(it)) || UpdateBuilder.SetValues.Any(v => SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.DbColumnName, StringComparison.CurrentCultureIgnoreCase) || SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.PropertyName, StringComparison.CurrentCultureIgnoreCase)) || it.IsPrimarykey == true).ToList();
+            this.UpdateBuilder.DbColumnInfoList = UpdateBuilder.DbColumnInfoList.Where(it =>it.UpdateServerTime==true||it.UpdateSql.HasValue()|| (UpdateParameterIsNull == false && IsPrimaryKey(it)) || UpdateBuilder.SetValues.Any(v => SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.DbColumnName, StringComparison.CurrentCultureIgnoreCase) || SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.PropertyName, StringComparison.CurrentCultureIgnoreCase)) || it.IsPrimarykey == true).ToList();
             CheckTranscodeing(false);
             AppendSets();
             return this;
@@ -488,7 +491,22 @@ namespace SqlSugar
                     }
                 }
             }
-            this.UpdateBuilder.DbColumnInfoList = UpdateBuilder.DbColumnInfoList.Where(it => (UpdateParameterIsNull == false && IsPrimaryKey(it)) || UpdateBuilder.SetValues.Any(v => SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.DbColumnName, StringComparison.CurrentCultureIgnoreCase) || SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.PropertyName, StringComparison.CurrentCultureIgnoreCase)) || it.IsPrimarykey == true).ToList();
+            if (this.EntityInfo.Columns.Any(it => it.InsertServerTime || it.UpdateSql.HasValue())) 
+            {
+                var appendColumns = this.EntityInfo.Columns.Where(it => it.InsertServerTime || it.UpdateSql.HasValue());
+                foreach (var item in appendColumns)
+                {
+                    if (item.UpdateServerTime)
+                    {
+                        UpdateBuilder.SetValues.Add(new KeyValuePair<string, string>(SqlBuilder.GetTranslationColumnName(item.DbColumnName), SqlBuilder.GetTranslationColumnName(item.DbColumnName) + "=" + UpdateBuilder.LambdaExpressions.DbMehtods.GetDate()));
+                    }
+                    else if (item.UpdateSql.HasValue())
+                    {
+                        UpdateBuilder.SetValues.Add(new KeyValuePair<string, string>(SqlBuilder.GetTranslationColumnName(item.DbColumnName), SqlBuilder.GetTranslationColumnName(item.DbColumnName) + "=" + item.UpdateSql));
+                    }
+                }
+            }
+            this.UpdateBuilder.DbColumnInfoList = UpdateBuilder.DbColumnInfoList.Where(it =>it.UpdateServerTime||it.UpdateSql.HasValue()|| (UpdateParameterIsNull == false && IsPrimaryKey(it)) || UpdateBuilder.SetValues.Any(v => SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.DbColumnName, StringComparison.CurrentCultureIgnoreCase) || SqlBuilder.GetNoTranslationColumnName(v.Key).Equals(it.PropertyName, StringComparison.CurrentCultureIgnoreCase)) || it.IsPrimarykey == true).ToList();
             CheckTranscodeing(false);
             AppendSets();
             return this;

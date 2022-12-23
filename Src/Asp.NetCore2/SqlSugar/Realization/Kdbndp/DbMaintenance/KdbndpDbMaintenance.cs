@@ -19,7 +19,7 @@ namespace SqlSugar
         {
             get
             {
-                string sql = @"select cast (pclass.oid as int4) as TableId,cast(ptables.tablename as varchar) as TableName,
+                string sql = $@"select cast (pclass.oid as int4) as TableId,cast(ptables.tablename as varchar) as TableName,
                                 pcolumn.column_name as DbColumnName,pcolumn.udt_name as DataType,
                                 pcolumn.character_maximum_length as Length,
                                 pcolumn.column_default as DefaultValue,
@@ -30,7 +30,7 @@ namespace SqlSugar
                                 then true else false end as IsIdentity,
                                 case when UPPER(pcolumn.is_nullable) = 'YES'
                                 then true else false end as IsNullable
-                                 from (select * from sys_tables where  UPPER(tablename) = UPPER('{0}') and UPPER(schemaname)='PUBLIC') ptables inner join sys_class pclass
+                                 from (select * from sys_tables where  UPPER(tablename) = UPPER('{{0}}') and  schemaname='{GetSchema()}') ptables inner join sys_class pclass
                                 on ptables.tablename = pclass.relname inner join (SELECT *
                                 FROM information_schema.columns
                                 ) pcolumn on pcolumn.table_name = ptables.tablename
@@ -53,7 +53,7 @@ namespace SqlSugar
             {
                 return @"select cast(relname as varchar) as Name,
                         cast(obj_description(relfilenode,'sys_class') as varchar) as Description from sys_class c 
-                        where  relkind = 'r' and relname not like 'sys_%' and relname not like 'sql_%' order by relname";
+                        where  relkind = 'r' and  c.oid > 16384 and c.relnamespace != 99 and c.relname not like '%pl_profiler_saved%' order by relname";
             }
         }
         protected override string GetViewInfoListSql
@@ -172,7 +172,7 @@ namespace SqlSugar
 
         protected override string IsAnyTableRemarkSql { get { throw new NotSupportedException(); } }
 
-        protected override string RenameTableSql => "alter table 表名 {0} to {1}";
+        protected override string RenameTableSql => "alter table  {0} to {1}";
 
         protected override string CreateIndexSql
         {
@@ -195,7 +195,7 @@ namespace SqlSugar
                 return "  Select count(1) from (SELECT to_regclass('Index_UnitCodeTest1_Id_CreateDate') as c ) t where t.c is not null";
             }
         }
-
+        protected override string IsAnyProcedureSql => throw new NotImplementedException();
         #endregion
 
         #region Check
@@ -240,6 +240,28 @@ namespace SqlSugar
         #endregion
 
         #region Methods
+        private string GetSchema()
+        {
+            var schema = "public";
+            if (System.Text.RegularExpressions.Regex.IsMatch(this.Context.CurrentConnectionConfig.ConnectionString.ToLower(), "searchpath="))
+            {
+                var regValue = System.Text.RegularExpressions.Regex.Match(this.Context.CurrentConnectionConfig.ConnectionString.ToLower(), @"searchpath\=(\w+)").Groups[1].Value;
+                if (regValue.HasValue())
+                {
+                    schema = regValue;
+                }
+            }
+            else if (System.Text.RegularExpressions.Regex.IsMatch(this.Context.CurrentConnectionConfig.ConnectionString.ToLower(), "search path="))
+            {
+                var regValue = System.Text.RegularExpressions.Regex.Match(this.Context.CurrentConnectionConfig.ConnectionString.ToLower(), @"search path\=(\w+)").Groups[1].Value;
+                if (regValue.HasValue())
+                {
+                    schema = regValue;
+                }
+            }
+
+            return schema.ToLower();
+        }
         public override bool UpdateColumn(string tableName, DbColumnInfo columnInfo)
         {
 
@@ -271,16 +293,16 @@ namespace SqlSugar
             //}
             return dataType + "" + dataSize;
         }
-        public override bool IsAnyColumn(string tableName, string columnName, bool isCache = true)
-        {
-            var sql =
-                $"select count(*) from information_schema.columns WHERE table_schema = 'public'  and UPPER(table_name) = '{tableName.ToUpper()}' and UPPER(column_name) = '{columnName.ToUpper()}'";
-            return this.Context.Ado.GetInt(sql) > 0;
-        }
+        //public override bool IsAnyColumn(string tableName, string columnName, bool isCache = true)
+        //{
+        //    var sql =
+        //        $"select count(*) from information_schema.columns WHERE table_schema = '{GetSchema()}'  and UPPER(table_name) = '{tableName.ToUpper(IsUpper)}' and UPPER(column_name) = '{columnName.ToUpper(IsUpper)}'";
+        //    return this.Context.Ado.GetInt(sql) > 0;
+        //}
 
         public override bool IsAnyTable(string tableName, bool isCache = true)
         {
-            var sql = $"select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE' and UPPER(table_name)='{tableName.ToUpper()}'";
+            var sql = $"select count(*) from information_schema.tables where UPPER(table_schema)=UPPER('{GetSchema()}') and UPPER(table_type)=UPPER('BASE TABLE') and UPPER(table_name)=UPPER('{tableName.ToUpper(IsUpper)}')";
             return this.Context.Ado.GetInt(sql)>0;
         }
 
@@ -353,7 +375,7 @@ namespace SqlSugar
             string primaryKeyInfo = null;
             if (columns.Any(it => it.IsPrimarykey) && isCreatePrimaryKey)
             {
-                primaryKeyInfo = string.Format(", Primary key({0})", string.Join(",", columns.Where(it => it.IsPrimarykey).Select(it => this.SqlBuilder.GetTranslationColumnName(it.DbColumnName.ToLower()))));
+                primaryKeyInfo = string.Format(", Primary key({0})", string.Join(",", columns.Where(it => it.IsPrimarykey).Select(it => this.SqlBuilder.GetTranslationColumnName(it.DbColumnName.ToUpper(IsUpper)))));
 
             }
             sql = sql.Replace("$PrimaryKey", primaryKeyInfo);
@@ -380,7 +402,7 @@ namespace SqlSugar
                 string dataSize = item.Length > 0 ? string.Format("({0})", item.Length) : null;
                 string nullType = item.IsNullable ? this.CreateTableNull : CreateTableNotNull;
                 string primaryKey = null;
-                string addItem = string.Format(this.CreateTableColumn, this.SqlBuilder.GetTranslationColumnName(columnName.ToLower()), dataType, dataSize, nullType, primaryKey, "");
+                string addItem = string.Format(this.CreateTableColumn, this.SqlBuilder.GetTranslationColumnName(columnName.ToUpper(IsUpper)), dataType, dataSize, nullType, primaryKey, "");
                 if (item.IsIdentity)
                 {
                     string length = dataType.Substring(dataType.Length - 1);
@@ -389,7 +411,7 @@ namespace SqlSugar
                 }
                 columnArray.Add(addItem);
             }
-            string tableString = string.Format(this.CreateTableSql, this.SqlBuilder.GetTranslationTableName(tableName.ToLower()), string.Join(",\r\n", columnArray));
+            string tableString = string.Format(this.CreateTableSql, this.SqlBuilder.GetTranslationTableName(tableName.ToUpper(IsUpper)), string.Join(",\r\n", columnArray));
             return tableString;
         }
         public override bool IsAnyConstraint(string constraintName)
@@ -405,6 +427,20 @@ namespace SqlSugar
         public override List<DbColumnInfo> GetColumnInfosByTableName(string tableName, bool isCache = true)
         {
             return base.GetColumnInfosByTableName(tableName.TrimEnd('"').TrimStart('"').ToLower(), isCache);
+        }
+        public bool IsUpper
+        {
+            get
+            {
+                if (this.Context.CurrentConnectionConfig.MoreSettings == null)
+                {
+                    return true;
+                }
+                else
+                {
+                    return this.Context.CurrentConnectionConfig.MoreSettings.IsAutoToUpper == true;
+                }
+            }
         }
         #endregion
     }

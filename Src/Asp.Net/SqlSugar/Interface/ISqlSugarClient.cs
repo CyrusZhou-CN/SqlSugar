@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Dynamic;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace SqlSugar
@@ -137,6 +138,8 @@ namespace SqlSugar
         #endregion
 
         #region Saveable
+         StorageableDataTable Storageable(List<Dictionary<string, object>> dictionaryList, string tableName);
+         StorageableDataTable Storageable(Dictionary<string, object> dictionary, string tableName);
         IStorageable<T> Storageable<T>(List<T> dataList) where T : class, new();
         IStorageable<T> Storageable<T>(T data) where T : class, new();
         StorageableDataTable Storageable(DataTable data);
@@ -144,6 +147,9 @@ namespace SqlSugar
         ISaveable<T> Saveable<T>(List<T> saveObjects) where T : class, new();
         [Obsolete("use Storageable")]
         ISaveable<T> Saveable<T>(T saveObject) where T : class, new();
+
+        StorageableMethodInfo StorageableByObject(object singleEntityObjectOrListObject);
+
         #endregion
 
         #region Queue

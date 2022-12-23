@@ -12,7 +12,7 @@ namespace OrmTest
 
         public static SqlSugarClient simpleDb => new SqlSugarClient(new ConnectionConfig()
         {
-            DbType =DbType.OpenGauss,
+            DbType = DbType.PostgreSQL,
             ConnectionString = Config.ConnectionString,
             InitKeyType = InitKeyType.Attribute,
             IsAutoCloseConnection = true,
@@ -27,7 +27,7 @@ namespace OrmTest
         });
         public static SqlSugarScope ssDb => new SqlSugarScope(new ConnectionConfig()
         {
-            DbType =DbType.OpenGauss,
+            DbType = DbType.PostgreSQL,
             ConnectionString = Config.ConnectionString,
             InitKeyType = InitKeyType.Attribute,
             IsAutoCloseConnection = true,
@@ -42,7 +42,7 @@ namespace OrmTest
         });
         public static SqlSugarScope singleDb =  new SqlSugarScope(new ConnectionConfig()
         {
-            DbType =DbType.OpenGauss,
+            DbType = DbType.PostgreSQL,
             ConnectionString = Config.ConnectionString,
             InitKeyType = InitKeyType.Attribute,
             IsAutoCloseConnection = true,
@@ -57,7 +57,7 @@ namespace OrmTest
         });
         public static SqlSugarScope singleAndSsDb = new SqlSugarScope(new ConnectionConfig()
         {
-            DbType =DbType.OpenGauss,
+            DbType = DbType.PostgreSQL,
             ConnectionString = Config.ConnectionString,
             InitKeyType = InitKeyType.Attribute,
             IsAutoCloseConnection = true,

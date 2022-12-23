@@ -14,6 +14,10 @@ namespace SqlSugar
         {
             return db.Ado.SqlQuery<string>(this.GetDataBaseSql);
         }
+        public virtual List<string> GetDataBaseList()
+        {
+            return this.Context.Ado.SqlQuery<string>(this.GetDataBaseSql);
+        }
         public virtual List<DbTableInfo> GetViewInfoList(bool isCache = true)
         {
             string cacheKey = "DbMaintenanceProvider.GetViewInfoList" + this.Context.CurrentConnectionConfig.ConfigId;
@@ -480,7 +484,7 @@ namespace SqlSugar
                 include = include.Replace("{include:", "").Replace("}", "");
                 include = $"include({include})";
             }
-            string sql = string.Format("CREATE {3} INDEX {2} ON {0}({1})"+ include, tableName, string.Join(",", columnNames), IndexName, isUnique ? "UNIQUE" : "");
+            string sql = string.Format("CREATE {3} INDEX {2} ON {0}({1})"+ include, this.SqlBuilder.GetTranslationColumnName(tableName) , string.Join(",", columnNames), IndexName, isUnique ? "UNIQUE" : "");
             this.Context.Ado.ExecuteCommand(sql);
             return true;
         }
@@ -597,6 +601,10 @@ namespace SqlSugar
             string sql = string.Format(this.RenameTableSql, oldTableName,newTableName);
             this.Context.Ado.ExecuteCommand(sql);
             return true;
+        }
+        public virtual bool IsAnyProcedure(string procName) {
+            string sql = string.Format(this.IsAnyProcedureSql, procName);
+            return  this.Context.Ado.GetInt(sql)>0;
         }
         #endregion
 

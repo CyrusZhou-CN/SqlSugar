@@ -59,6 +59,11 @@ namespace OrmTest
            .Where(x => x.SchoolA.SchoolName == "北大")
            .ToList();
 
+
+            var list22 = db.Queryable<StudentA>()
+            .Includes(x => x.SchoolA.ToList(it=>new SchoolA() {  SchoolId=it.SchoolId}), x => x.RoomList.ToList(it=>new RoomA() { RoomId=it.RoomId})) 
+            .ToList();
+
             //先用Mapper导航映射查出第二层
             var list = db.Queryable<StudentA>().Mapper(x => x.SchoolA, x => x.SchoolId).ToList();
 
@@ -127,6 +132,93 @@ namespace OrmTest
             {
                 it.UnitA002 = db.Queryable<UnitA002>().SetContext(x => x.orgid, () => it.id, it).First();
             });
+
+           var list4=db.Queryable<SchoolA>()
+                .LeftJoin<StudentA>((x, y) => (x.SchoolId == y.SchoolId))
+                .LeftJoin<BookA>((x,y,z)=>y.SchoolId==y.SchoolId)
+                .LeftJoin<BookA>((x, y, z,z1) => y.SchoolId == y.SchoolId)
+
+                .Select((x,y,z,z1) => new  
+                {
+                     SchoolName= x.SchoolName,
+                      Id="1"
+                })
+                .MergeTable()
+                .Select(it=>new UnitView01() {
+                 Name="a"
+                },true).ToList();
+
+
+            db.Queryable<SchoolA>()
+             .LeftJoin<StudentA>((x, y) => (x.SchoolId == y.SchoolId))
+             .LeftJoin<BookA>((x, y, z) => y.SchoolId == y.SchoolId)
+             .Select((x,y,z) => new UnitView01()
+             {
+                 Name = "a"
+             },true).ToList();
+
+
+            var list6 = db.Queryable<SchoolA>()
+             .LeftJoin<StudentA>((x, y) => (x.SchoolId == y.SchoolId))
+             .LeftJoin<BookA>((x, y, z) => y.SchoolId == y.SchoolId)
+             .Select((x, y, z) => new UnitView01()
+             {
+                 Name = "a"
+             }, true).ToSql().Key;
+
+
+            if (list6 != "SELECT @constant0 AS [Name] ,x.[SchoolName] AS [SchoolName] ,y.[StudentId] AS [StudentId] ,z.[BookId] AS [BookId] FROM [SchoolA] x Left JOIN [StudentA] y ON ( [x].[SchoolId] = [y].[SchoolId] )  Left JOIN [BookA] z ON ( [y].[SchoolId] = [y].[SchoolId] )  ")
+            {
+                throw new Exception("unit error");
+            }
+
+            db.Queryable<SchoolA>()
+            .Select(x => new UnitView01()
+            {
+                Name = "a"
+            }, true).ToList();
+
+            var list7 = db.Queryable<SchoolA>()
+               .Select(x => new UnitView01()
+               {
+                   Name = "a"
+               }, true).ToSql().Key;
+
+            if (list7 != "SELECT @constant0 AS [Name] ,[SchoolName] AS [SchoolName] FROM [SchoolA] ") 
+            {
+                throw new Exception("unit error");
+            }
+
+
+            db.Queryable<SchoolA>()
+            .LeftJoin<StudentA>((x, y) => (x.SchoolId == y.SchoolId))
+            .Select((x, y) => new UnitView01()
+            {
+                Name = "a"
+            }, true).ToList();
+
+
+            var list8 = db.Queryable<SchoolA>()
+             .LeftJoin<StudentA>((x, y) => (x.SchoolId == y.SchoolId))
+             .Select((x, y) => new UnitView01()
+             {
+                 Name = "a"
+             }, true).ToSql().Key;
+
+
+            if (list8 != "SELECT @constant0 AS [Name] ,x.[SchoolName] AS [SchoolName] ,y.[StudentId] AS [StudentId] FROM [SchoolA] x Left JOIN [StudentA] y ON ( [x].[SchoolId] = [y].[SchoolId] )  ")
+            {
+                throw new Exception("unit error");
+            }
+        }
+
+        public class UnitView01 
+        {
+            public string Id { get; set; }
+            public string SchoolName { get; set; }
+            public string Name { get; set; }
+            public int BookId { get; set; }
+            public int StudentId { get; set; }
         }
 
         public class UnitA001
